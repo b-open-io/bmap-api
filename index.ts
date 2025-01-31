@@ -305,7 +305,7 @@ const app = new Elysia()
 
             changeStream.on('change', (next: ChangeStreamDocument<BmapTx>) => {
               if (next.operationType === 'insert' && isActive) {
-                const eventType = collectionName === '$all' ? next.ns.coll : collectionName;
+                const eventType = next.fullDocument?.MAP?.[0]?.type || next.ns.coll;
                 messageQueue.push(
                   `data: ${JSON.stringify({ type: eventType, data: [next.fullDocument] })}\n\n`
                 );
