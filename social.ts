@@ -1358,6 +1358,42 @@ export const socialRoutes = new Elysia()
       },
     }
   )
+  .ws(
+    '/@/:bapId/messages/:targetBapId/listen',
+    {
+      message: async (ws) => {
+        const { bapId, targetBapId } = ws.raw.data["params"];
+        const identity = await fetchBapIdentityData(bapId);
+        if (!identity?.currentAddress) {
+          throw new Error('Invalid BAP identity');
+        }
+        const bapAddress = identity.currentAddress;
+        const targetIdentity = await fetchBapIdentityData(targetBapId);
+        if (!targetIdentity?.currentAddress) {
+          throw new Error('Invalid target BAP identity');
+        }
+        const targetAddress = targetIdentity.currentAddress;
+        const dbo = await getDbo();
+        const cursor = dbo.collection("message").watch([{ $match: {
+            "$or":[{
+              "$and": [{"fullDocument.MAP.bapID":bapId},{
+                "$or":[{"fullDocument.AIP.algorithm_signing_component":targetAddress},
+                  {"fullDocument.AIP.address":targetAddress}]
+              }]
+            },{
+              "$and":[{"fullDocument.MAP.bapID":targetBapId}, {
+                "$or":[{"fullDocument.AIP.algorithm_signing_component":bapAddress},
+                  {"fullDocument.AIP.address":bapAddress}]
+              }]
+            }]
+          }
+        }]);
+        cursor.on("change", (change: any) => {
+          ws.send(change.fullDocument?._id);
+        })
+      }
+    },
+  )
   .get(
     '/identities',
     async ({ set }) => {
