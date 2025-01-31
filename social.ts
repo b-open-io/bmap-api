@@ -1361,7 +1361,7 @@ export const socialRoutes = new Elysia()
   .ws(
     '/@/:bapId/messages/:targetBapId/listen',
     {
-      message: async (ws) => {
+      open: async (ws) => {
         const { bapId, targetBapId } = ws.raw.data["params"];
         const identity = await fetchBapIdentityData(bapId);
         if (!identity?.currentAddress) {
