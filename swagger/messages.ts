@@ -244,3 +244,68 @@ export const messageListenEndpointDetail: OpenAPIV3.OperationObject = {
     },
   },
 };
+
+export const DMResponseSchema = t.Object({
+  bapID: t.String(),
+  page: t.Number(),
+  limit: t.Number(),
+  count: t.Number(),
+  results: t.Array(
+    t.Object({
+      timestamp: t.Number(),
+      tx: t.Object({
+        h: t.String(),
+      }),
+      blk: t.Object({
+        i: t.Number(),
+        t: t.Number(),
+      }),
+      MAP: t.Array(
+        t.Object({
+          app: t.String(),
+          type: t.String(),
+          bapID: t.String(),
+          encrypted: t.Optional(t.String()),
+          context: t.Literal('bapID'),
+        })
+      ),
+      B: t.Array(
+        t.Object({
+          Data: t.Object({
+            utf8: t.String(),
+            data: t.Optional(t.String()),
+          }),
+          encoding: t.String(),
+        })
+      ),
+      AIP: t.Optional(
+        t.Array(
+          t.Object({
+            algorithm: t.String(),
+            address: t.Optional(t.String()),
+            algorithm_signing_component: t.Optional(t.String()),
+          })
+        )
+      ),
+    })
+  ),
+  signers: t.Array(
+    t.Object({
+      idKey: t.String(),
+      rootAddress: t.String(),
+      currentAddress: t.String(),
+      addresses: t.Array(
+        t.Object({
+          address: t.String(),
+          txId: t.String(),
+          block: t.Optional(t.Number()),
+        })
+      ),
+      identity: t.String(),
+      identityTxId: t.String(),
+      block: t.Number(),
+      timestamp: t.Number(),
+      valid: t.Boolean(),
+    })
+  ),
+});

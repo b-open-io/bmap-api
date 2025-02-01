@@ -10,11 +10,12 @@ import { normalize } from './bmap.js';
 import { client, readFromRedis, saveToRedis } from './cache.js';
 import type { CacheValue as BaseCacheValue, CacheError, CacheSigner } from './cache.js';
 import { getDbo } from './db.js';
-import { watchAllMessages, watchDirectMessages } from './queries/messages.js';
+import { type DMResponse, watchAllMessages, watchDirectMessages } from './queries/messages.js';
 import { ChannelResponseSchema, channelsEndpointDetail } from './swagger/channels.js';
 import { FriendResponseSchema, friendEndpointDetail } from './swagger/friend.js';
 import {
   ChannelMessageSchema,
+  DMResponseSchema,
   MessageListenParams,
   MessageQuery,
   channelMessagesEndpointDetail,
@@ -84,15 +85,6 @@ export interface ChannelInfo {
   last_message: string;
   last_message_time: number;
   messages: number;
-}
-
-export interface DMResponse {
-  bapID: string;
-  page: number;
-  limit: number;
-  count: number;
-  results: Message[];
-  signers: BapIdentity[];
 }
 
 export interface ChannelMessage {
@@ -671,71 +663,6 @@ export const IdentityResponse = t.Array(
   })
 );
 
-const DMResponse = t.Object({
-  bapID: t.String(),
-  page: t.Number(),
-  limit: t.Number(),
-  count: t.Number(),
-  results: t.Array(
-    t.Object({
-      timestamp: t.Number(),
-      tx: t.Object({
-        h: t.String(),
-      }),
-      blk: t.Object({
-        i: t.Number(),
-        t: t.Number(),
-      }),
-      MAP: t.Array(
-        t.Object({
-          app: t.String(),
-          type: t.String(),
-          bapID: t.String(),
-          encrypted: t.Optional(t.String()),
-          context: t.Literal('bapID'),
-        })
-      ),
-      B: t.Array(
-        t.Object({
-          Data: t.Object({
-            utf8: t.String(),
-            data: t.Optional(t.String()),
-          }),
-          encoding: t.String(),
-        })
-      ),
-      AIP: t.Optional(
-        t.Array(
-          t.Object({
-            algorithm: t.String(),
-            address: t.Optional(t.String()),
-            algorithm_signing_component: t.Optional(t.String()),
-          })
-        )
-      ),
-    })
-  ),
-  signers: t.Array(
-    t.Object({
-      idKey: t.String(),
-      rootAddress: t.String(),
-      currentAddress: t.String(),
-      addresses: t.Array(
-        t.Object({
-          address: t.String(),
-          txId: t.String(),
-          block: t.Optional(t.Number()),
-        })
-      ),
-      identity: t.String(),
-      identityTxId: t.String(),
-      block: t.Number(),
-      timestamp: t.Number(),
-      valid: t.Boolean(),
-    })
-  ),
-});
-
 const LikeResponse = t.Array(
   t.Object({
     txid: t.String(),
@@ -1294,7 +1221,7 @@ export const socialRoutes = new Elysia()
     {
       params: t.Object({ bapId: t.String() }),
       query: MessageQuery,
-      response: DMResponse,
+      response: DMResponseSchema,
       detail: {
         tags: ['social'],
         description: 'Get encrypted direct messages for a BAP ID',
@@ -1339,7 +1266,7 @@ export const socialRoutes = new Elysia()
     {
       params: t.Object({ bapId: t.String(), targetBapId: t.String() }),
       query: MessageQuery,
-      response: DMResponse,
+      response: DMResponseSchema,
       detail: {
         tags: ['social'],
         description: 'Get encrypted direct messages between two BAP IDs',

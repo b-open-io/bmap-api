@@ -5,12 +5,12 @@ import type { BapIdentity } from './bap.js';
 import type { TimeSeriesData } from './chart.js';
 import { getCurrentBlockHeight } from './db.js';
 
+import type { DMResponse } from './queries/messages.js';
 // Import interfaces from social.ts
 import type {
   CacheListResponse,
   ChannelInfo,
   ChannelMessage,
-  DMResponse,
   LikeInfo,
   Reactions,
 } from './social.js';
