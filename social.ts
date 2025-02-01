@@ -10,12 +10,15 @@ import { normalize } from './bmap.js';
 import { client, readFromRedis, saveToRedis } from './cache.js';
 import type { CacheValue as BaseCacheValue, CacheError, CacheSigner } from './cache.js';
 import { getDbo } from './db.js';
+import { watchAllMessages, watchDirectMessages } from './queries/messages.js';
 import { ChannelResponseSchema, channelsEndpointDetail } from './swagger/channels.js';
 import { FriendResponseSchema, friendEndpointDetail } from './swagger/friend.js';
 import {
   ChannelMessageSchema,
+  MessageListenParams,
   MessageQuery,
   channelMessagesEndpointDetail,
+  messageListenEndpointDetail,
 } from './swagger/messages.js';
 
 // Extend CacheValue type
@@ -1360,12 +1363,7 @@ export const socialRoutes = new Elysia()
     }
   )
   .ws('/@/:bapId/messages/:targetBapId/listen', {
-    body: t.Object({
-      params: t.Object({
-        bapId: t.String(),
-        targetBapId: t.String(),
-      }),
-    }),
+    body: MessageListenParams,
     open: async (ws) => {
       const { bapId, targetBapId } = ws.data.params;
       const identity = await fetchBapIdentityData(bapId);
@@ -1378,48 +1376,22 @@ export const socialRoutes = new Elysia()
         throw new Error('Invalid target BAP identity');
       }
       const targetAddress = targetIdentity.currentAddress;
-      const dbo = await getDbo();
-      const cursor = dbo.collection('message').watch([
-        {
-          $match: {
-            $or: [
-              {
-                $and: [
-                  { 'fullDocument.MAP.bapID': bapId },
-                  {
-                    $or: [
-                      { 'fullDocument.AIP.algorithm_signing_component': targetAddress },
-                      { 'fullDocument.AIP.address': targetAddress },
-                    ],
-                  },
-                ],
-              },
-              {
-                $and: [
-                  { 'fullDocument.MAP.bapID': targetBapId },
-                  {
-                    $or: [
-                      { 'fullDocument.AIP.algorithm_signing_component': bapAddress },
-                      { 'fullDocument.AIP.address': bapAddress },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        },
-      ]);
+
+      const cursor = await watchDirectMessages({
+        bapId,
+        bapAddress,
+        targetBapId,
+        targetAddress,
+      });
+
       cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
         ws.send(change.fullDocument?._id);
       });
     },
+    detail: messageListenEndpointDetail,
   })
   .ws('/@/:bapId/messages/listen', {
-    body: t.Object({
-      params: t.Object({
-        bapId: t.String(),
-      }),
-    }),
+    body: MessageListenParams,
     open: async (ws) => {
       const { bapId } = ws.data.params;
       const identity = await fetchBapIdentityData(bapId);
@@ -1427,18 +1399,12 @@ export const socialRoutes = new Elysia()
         throw new Error('Invalid BAP identity');
       }
       const bapAddress = identity.currentAddress;
-      const dbo = await getDbo();
-      const cursor = dbo.collection('message').watch([
-        {
-          $match: {
-            $or: [
-              { 'fullDocument.MAP.bapID': bapId },
-              { 'fullDocument.AIP.algorithm_signing_component': bapAddress },
-              { 'fullDocument.AIP.address': bapAddress },
-            ],
-          },
-        },
-      ]);
+
+      const cursor = await watchAllMessages({
+        bapId,
+        bapAddress,
+      });
+
       cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
         ws.send({
           tx: change.fullDocument?._id,
@@ -1448,6 +1414,7 @@ export const socialRoutes = new Elysia()
         });
       });
     },
+    detail: messageListenEndpointDetail,
   })
   .get(
     '/identities',

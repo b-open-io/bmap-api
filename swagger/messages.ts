@@ -198,3 +198,49 @@ export const channelMessagesEndpointDetail: OpenAPIV3.OperationObject = {
     },
   },
 };
+
+export const MessageListenParams = t.Object({
+  params: t.Object({
+    bapId: t.String(),
+    targetBapId: t.Optional(t.String()),
+  }),
+});
+
+export const messageListenEndpointDetail: OpenAPIV3.OperationObject = {
+  tags: ['social'],
+  description: 'Listen to real-time messages for a BAP ID',
+  parameters: [
+    {
+      name: 'bapId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'BAP Identity Key',
+    },
+    {
+      name: 'targetBapId',
+      in: 'path',
+      required: false,
+      schema: { type: 'string' },
+      description: 'Optional target BAP Identity Key for direct messages',
+    },
+  ],
+  responses: {
+    '101': {
+      description: 'WebSocket connection established',
+    },
+    '400': {
+      description: 'Invalid BAP identity',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  },
+};
