@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { socialRoutes } from '../../social.js';
+import type { CacheValue } from '../../cache.js';
+import { socialRoutes } from '../../social/routes.js';
 
 // Mock Redis with in-memory store
-const mockCache = new Map();
+const mockCache = new Map<string, CacheValue>();
 mock.module('../../cache.js', () => ({
   readFromRedis: async (key: string) => mockCache.get(key),
-  saveToRedis: async (key: string, value: any) => mockCache.set(key, value),
+  saveToRedis: async (key: string, value: CacheValue) => mockCache.set(key, value),
   client: {
     get: async (key: string) => mockCache.get(key),
-    set: async (key: string, value: any) => mockCache.set(key, value),
+    set: async (key: string, value: CacheValue) => mockCache.set(key, value),
     isReady: true,
   },
 }));
