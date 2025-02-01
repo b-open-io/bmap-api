@@ -1,4 +1,4 @@
-import type { BapIdentity } from '../../bap.js';
+import type { BapIdentity, BapIdentityObject } from '../../bap.js';
 import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheError, CacheValue } from '../../cache.js';
 import { client, readFromRedis, saveToRedis } from '../../cache.js';
@@ -71,26 +71,7 @@ export async function getAllIdentities(): Promise<BapIdentity[]> {
     })
   );
 
-  const filteredIdentities = identities.filter((id): id is BapIdentity => {
-    if (!id) return false;
-    return (
-      typeof id.idKey === 'string' &&
-      typeof id.rootAddress === 'string' &&
-      typeof id.currentAddress === 'string' &&
-      Array.isArray(id.addresses) &&
-      id.addresses.every(
-        (addr) =>
-          typeof addr.address === 'string' &&
-          typeof addr.txId === 'string' &&
-          (typeof addr.block === 'number' || addr.block === undefined)
-      ) &&
-      (typeof id.identity === 'string' || typeof id.identity === 'object') &&
-      typeof id.identityTxId === 'string' &&
-      typeof id.block === 'number' &&
-      typeof id.timestamp === 'number' &&
-      typeof id.valid === 'boolean'
-    );
-  });
+  const filteredIdentities = identities.filter((id) => id !== null) as BapIdentity[];
 
   console.log('\n=== Identity Processing Summary ===');
   console.log('Total cached signers:', signerKeys.length);
