@@ -1,8 +1,9 @@
 import type { BmapTx } from 'bmapjs';
+import type { ServerWebSocket } from 'bun';
 import { Elysia, t } from 'elysia';
 import { InternalServerError, error } from 'elysia';
 import * as mongo from 'mongodb';
-import type { Db } from 'mongodb';
+import type { ChangeStream, ChangeStreamDocument, ChangeStreamInsertDocument, Db } from 'mongodb';
 import { getBAPIdByAddress } from './bap.js';
 import type { BapIdentity } from './bap.js';
 import { normalize } from './bmap.js';
@@ -1358,69 +1359,97 @@ export const socialRoutes = new Elysia()
       },
     }
   )
-  .ws(
-    '/@/:bapId/messages/:targetBapId/listen',
-    {
-      open: async (ws) => {
-        const { bapId, targetBapId } = ws.raw.data["params"];
-        const identity = await fetchBapIdentityData(bapId);
-        if (!identity?.currentAddress) {
-          throw new Error('Invalid BAP identity');
-        }
-        const bapAddress = identity.currentAddress;
-        const targetIdentity = await fetchBapIdentityData(targetBapId);
-        if (!targetIdentity?.currentAddress) {
-          throw new Error('Invalid target BAP identity');
-        }
-        const targetAddress = targetIdentity.currentAddress;
-        const dbo = await getDbo();
-        const cursor = dbo.collection("message").watch([{ $match: {
-            "$or":[{
-              "$and": [{"fullDocument.MAP.bapID":bapId},{
-                "$or":[{"fullDocument.AIP.algorithm_signing_component":targetAddress},
-                  {"fullDocument.AIP.address":targetAddress}]
-              }]
-            },{
-              "$and":[{"fullDocument.MAP.bapID":targetBapId}, {
-                "$or":[{"fullDocument.AIP.algorithm_signing_component":bapAddress},
-                  {"fullDocument.AIP.address":bapAddress}]
-              }]
-            }]
-          }
-        }]);
-        cursor.on("change", (change: any) => {
-          ws.send(change.fullDocument?._id);
-        })
+  .ws('/@/:bapId/messages/:targetBapId/listen', {
+    body: t.Object({
+      params: t.Object({
+        bapId: t.String(),
+        targetBapId: t.String(),
+      }),
+    }),
+    open: async ({ data }) => {
+      const { bapId, targetBapId } = data.params;
+      const identity = await fetchBapIdentityData(bapId);
+      if (!identity?.currentAddress) {
+        throw new Error('Invalid BAP identity');
       }
-    },
-  )
-  .ws(
-    '/@/:bapId/messages/listen',
-    {
-      open: async (ws) => {
-        const { bapId } = ws.raw.data["params"];
-        const identity = await fetchBapIdentityData(bapId);
-        if (!identity?.currentAddress) {
-          throw new Error('Invalid BAP identity');
-        }
-        const bapAddress = identity.currentAddress;
-        const dbo = await getDbo();
-        const cursor = dbo.collection("message").watch([{ $match: {"$or":[
-          {"fullDocument.MAP.bapID":bapId},
-          {"fullDocument.AIP.algorithm_signing_component":bapAddress},
-          {"fullDocument.AIP.address":bapAddress}
-        ]}}]);
-        cursor.on("change", (change: any) => {
-          ws.send({
-            tx: change.fullDocument?._id,
-            bap_id: change.fullDocument?.MAP?.[0]?.bapID,
-            algorithm_signing_component: change.fullDocument?.AIP?.[0]?.algorithm_signing_component,
-            aip_address: change.fullDocument?.AIP?.[0]?.address,
-          });
-        })
+      const bapAddress = identity.currentAddress;
+      const targetIdentity = await fetchBapIdentityData(targetBapId);
+      if (!targetIdentity?.currentAddress) {
+        throw new Error('Invalid target BAP identity');
       }
+      const targetAddress = targetIdentity.currentAddress;
+      const dbo = await getDbo();
+      const cursor = dbo.collection('message').watch([
+        {
+          $match: {
+            $or: [
+              {
+                $and: [
+                  { 'fullDocument.MAP.bapID': bapId },
+                  {
+                    $or: [
+                      { 'fullDocument.AIP.algorithm_signing_component': targetAddress },
+                      { 'fullDocument.AIP.address': targetAddress },
+                    ],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  { 'fullDocument.MAP.bapID': targetBapId },
+                  {
+                    $or: [
+                      { 'fullDocument.AIP.algorithm_signing_component': bapAddress },
+                      { 'fullDocument.AIP.address': bapAddress },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ]);
+
+      cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
+        return change.fullDocument?._id;
+      });
     },
-  )
+  })
+  .ws('/@/:bapId/messages/listen', {
+    body: t.Object({
+      params: t.Object({
+        bapId: t.String(),
+      }),
+    }),
+    open: async ({ data }) => {
+      const { bapId } = data.params;
+      const identity = await fetchBapIdentityData(bapId);
+      if (!identity?.currentAddress) {
+        throw new Error('Invalid BAP identity');
+      }
+      const bapAddress = identity.currentAddress;
+      const dbo = await getDbo();
+      const cursor = dbo.collection('message').watch([
+        {
+          $match: {
+            $or: [
+              { 'fullDocument.MAP.bapID': bapId },
+              { 'fullDocument.AIP.algorithm_signing_component': bapAddress },
+              { 'fullDocument.AIP.address': bapAddress },
+            ],
+          },
+        },
+      ]);
+      cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
+        return {
+          tx: change.fullDocument?._id,
+          bap_id: change.fullDocument?.MAP?.[0]?.bapID,
+          algorithm_signing_component: change.fullDocument?.AIP?.[0]?.algorithm_signing_component,
+          aip_address: change.fullDocument?.AIP?.[0]?.address,
+        };
+      });
+    },
+  })
   .get(
     '/identities',
     async ({ set }) => {
