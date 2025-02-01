@@ -7,13 +7,9 @@ import { getCurrentBlockHeight } from './db.js';
 
 import type { DMResponse } from './queries/messages.js';
 // Import interfaces from social.ts
-import type {
-  CacheListResponse,
-  ChannelInfo,
-  ChannelMessage,
-  LikeInfo,
-  Reactions,
-} from './social.js';
+import type { ChannelInfo } from './social/swagger/channels.js';
+import type { LikeResponse, Reactions } from './social/swagger/likes.js';
+import type { ChannelMessage } from './social/swagger/messages.js';
 
 const client = redis.createClient({
   url: process.env.REDIS_PRIVATE_URL,
@@ -50,7 +46,7 @@ export type CacheValue =
   | { type: 'tx'; value: BmapTx }
   | { type: 'count'; value: Record<string, number>[] }
   | { type: 'signer'; value: BapIdentity }
-  | { type: 'likes'; value: LikeInfo }
+  | { type: 'likes'; value: LikeResponse }
   | { type: 'channels'; value: ChannelInfo[] }
   | { type: 'messages'; value: ChannelMessage | DMResponse }
   | { type: 'blockHeight'; value: number }
@@ -58,7 +54,7 @@ export type CacheValue =
   | { type: 'chart'; value: ChartCacheData }
   | { type: 'timeSeriesData'; value: TimeSeriesData }
   | { type: 'reactions'; value: Reactions }
-  | { type: 'identities'; value: CacheListResponse };
+  | { type: 'identities'; value: BapIdentity[] };
 
 export async function saveToRedis<T extends CacheValue>(key: string, value: T): Promise<void> {
   await client.set(key, JSON.stringify(value));

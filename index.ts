@@ -31,7 +31,7 @@ import { Timeframe } from './types.js';
 
 import type { ChangeStream } from 'mongodb';
 import { bitcoinSchemaCollections, htmxRoutes } from './htmx.js';
-import { socialRoutes } from './social.js';
+import { socialRoutes } from './social/routes.js';
 
 dotenv.config();
 

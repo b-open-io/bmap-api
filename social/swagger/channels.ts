@@ -1,5 +1,14 @@
 import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
+import type { ChannelMessage } from './messages.js';
+
+export interface ChannelInfo {
+  channel: string;
+  creator: string;
+  last_message: string;
+  last_message_time: number;
+  messages: number;
+}
 
 export const ChannelResponseSchema = t.Array(
   t.Object({

@@ -1,5 +1,45 @@
 import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
+import type { BapIdentity } from '../../bap.js';
+
+export interface Message {
+  tx: {
+    h: string;
+  };
+  blk: {
+    i: number;
+    t: number;
+  };
+  MAP: {
+    app: string;
+    type: string;
+    paymail?: string;
+    context?: string;
+    channel?: string;
+    bapID?: string;
+  }[];
+  B: {
+    encoding: string;
+    Data: {
+      utf8: string;
+      data?: string;
+    };
+  }[];
+  AIP?: {
+    algorithm: string;
+    address: string;
+    algorithm_signing_component: string;
+  }[];
+}
+
+export interface ChannelMessage {
+  channel: string;
+  page: number;
+  limit: number;
+  count: number;
+  results: Message[];
+  signers: BapIdentity[];
+}
 
 export const MessageQuery = t.Object({
   page: t.Optional(t.String()),
@@ -24,8 +64,10 @@ export const ChannelMessageSchema = t.Object({
         t.Object({
           app: t.String(),
           type: t.String(),
-          channel: t.String(),
-          paymail: t.String(),
+          paymail: t.Optional(t.String()),
+          context: t.Optional(t.String()),
+          channel: t.Optional(t.String()),
+          bapID: t.Optional(t.String()),
         })
       ),
       B: t.Array(
@@ -40,8 +82,9 @@ export const ChannelMessageSchema = t.Object({
       AIP: t.Optional(
         t.Array(
           t.Object({
-            address: t.Optional(t.String()),
-            algorithm_signing_component: t.Optional(t.String()),
+            algorithm: t.String(),
+            address: t.String(),
+            algorithm_signing_component: t.String(),
           })
         )
       ),
