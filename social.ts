@@ -1366,8 +1366,8 @@ export const socialRoutes = new Elysia()
         targetBapId: t.String(),
       }),
     }),
-    open: async ({ data }) => {
-      const { bapId, targetBapId } = data.params;
+    open: async (ws) => {
+      const { bapId, targetBapId } = ws.data.params;
       const identity = await fetchBapIdentityData(bapId);
       if (!identity?.currentAddress) {
         throw new Error('Invalid BAP identity');
@@ -1409,9 +1409,8 @@ export const socialRoutes = new Elysia()
           },
         },
       ]);
-
       cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
-        return change.fullDocument?._id;
+        ws.send(change.fullDocument?._id);
       });
     },
   })
@@ -1421,8 +1420,8 @@ export const socialRoutes = new Elysia()
         bapId: t.String(),
       }),
     }),
-    open: async ({ data }) => {
-      const { bapId } = data.params;
+    open: async (ws) => {
+      const { bapId } = ws.data.params;
       const identity = await fetchBapIdentityData(bapId);
       if (!identity?.currentAddress) {
         throw new Error('Invalid BAP identity');
@@ -1441,12 +1440,12 @@ export const socialRoutes = new Elysia()
         },
       ]);
       cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
-        return {
+        ws.send({
           tx: change.fullDocument?._id,
           bap_id: change.fullDocument?.MAP?.[0]?.bapID,
           algorithm_signing_component: change.fullDocument?.AIP?.[0]?.algorithm_signing_component,
           aip_address: change.fullDocument?.AIP?.[0]?.address,
-        };
+        });
       });
     },
   })
@@ -1677,7 +1676,13 @@ async function getDirectMessages({
       })),
     })),
     signers: signers.map((s) => ({
-      ...s,
+      idKey: s.idKey,
+      rootAddress: s.rootAddress,
+      currentAddress: s.currentAddress,
+      addresses: s.addresses,
+      block: s.block || 0,
+      timestamp: s.timestamp || 0,
+      valid: s.valid ?? true,
       identityTxId: s.identityTxId || '',
       identity: typeof s.identity === 'string' ? s.identity : JSON.stringify(s.identity) || '',
     })),
