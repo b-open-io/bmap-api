@@ -246,3 +246,25 @@ return {
   icon: data.icon || null           // Convert undefined to null
 };
 ```
+
+# Making Careful Edits
+
+When editing files, follow these strict rules:
+1. ALWAYS read the file first to understand exact context and line numbers
+2. Use precise line targeting with tools like `sed`
+3. Make minimal changes - one line at a time
+4. Verify after each change
+5. When using `sed`, use exact line numbers and patterns
+6. Include comments in the edit to help the apply model understand the scope
+
+Example of careful editing:
+```bash
+# 1. First read to confirm exact line and content
+sed -n '7p' file.txt
+
+# 2. Make targeted change with exact line number
+sed -i '' '7s/^old/new/' file.txt
+
+# 3. Verify the change
+sed -n '7p' file.txt
+```

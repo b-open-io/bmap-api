@@ -1,0 +1,64 @@
+<Plan>
+  In the master.diff the enormous “social.ts” file was split into several logically organized modules:
+  – A “social/routes.ts” file now defines all the Elysia routes.
+  – All query‐functions (for messages, channels, friends, identities, likes, etc.) have been moved into a “social/queries” folder.
+  – All swagger/OpenAPI definitions and Elysia schemas have been moved into a “social/swagger” folder.
+  – The original “social.ts” file is removed.
+  
+  To restore the original functionality while preserving the re‐organization, you must update every file (or create new ones) as follows. In summary, you need to:
+  
+  1. Remove or deprecate the old “social.ts” file and update any imports that referenced it.
+  2. [DONE] Create a new “social/routes.ts” file whose content is exactly the routes section from the diff (the new re‐organized routes).
+  3. [DONE] Create the new query files under “social/queries/” (messages.ts, channels.ts, friends.ts, identities.ts, identity.ts, likes.ts) with the content provided in the diff.
+  4. [DONE] Create the new swagger definition files under “social/swagger/” (channels.ts, friend.ts, identity.ts, likes.ts, messages.ts) with the diff content.
+  5. [DONE] In “bap.ts”, remove the now‐unused “BapAddress” and “BapIdentityObject” interfaces and modify the “BapIdentity” type so that its first property is “idKey” (and remove extra fields such as “paymail”, “displayName”, “icon”) exactly as shown in the diff.
+  6. [DONE] In “cache.ts”, update the “CacheValue” union so that the “identities” case is defined as a value of type “BapIdentity[]” (instead of a separate CacheListResponse).
+  7. [DONE] In “index.ts”, change the import for social routes from the old “./social.js” to the new “./social/routes.js”.
+  8. [DONE] Update any test files (for example, “tests/social/channels.test.ts”) so that they import from “social/routes.js” instead of the old file.
+  
+  In each case, use the diff’s content exactly so that the new modular files implement the same logic as the old monolithic social.ts.
+  
+  The following is a file‐by‐file summary of the required changes:
+  
+  • File: bap.ts  
+    – Remove the interfaces “BapAddress” and “BapIdentityObject”.  
+    – Change the “BapIdentity” type to start with “idKey” followed by “rootAddress”, “currentAddress”, “addresses” (an array of objects with “address”, “txId” and “block” which is number | undefined), “identity” (string or object), “identityTxId”, “block”, “timestamp”, “valid”.  
+    – Remove extra fields (paymail, displayName, icon) that were present before.
+  
+  • File: cache.ts  
+    – In the “CacheValue” union type, change the case for identities so that instead of 
+      “{ type: 'identities'; value: CacheListResponse }” it becomes 
+      “{ type: 'identities'; value: BapIdentity[] }”.
+  
+  • File: index.ts  
+    – Update the import line to import social routes from “./social/routes.js” instead of “./social.js”.
+  
+  • File: social/routes.ts  
+    – Create this new file containing the complete routes definitions as provided in the diff (the long diff block for routes). This file now defines all the GET, POST, and WS endpoints previously in social.ts.
+  
+  • Files under social/queries/  
+    – Create the following new files with the content exactly as in the diff:
+      • social/queries/messages.ts  
+      • social/queries/channels.ts  
+      • social/queries/friends.ts  
+      • social/queries/identities.ts  
+      • social/queries/identity.ts  
+      • social/queries/likes.ts  
+    – Each file should export the functions (e.g. getDirectMessages, watchDirectMessages, getChannels, fetchAllFriendsAndUnfriends, processRelationships, getAllIdentities, fetchBapIdentityData (for identity queries), processLikes, getLikes, etc.) exactly as given.
+  
+  • Files under social/swagger/  
+    – Move (or create new) swagger definition files from the old “swagger/” folder to “social/swagger/”. Specifically:
+      • social/swagger/channels.ts  
+      • social/swagger/friend.ts  
+      • social/swagger/identity.ts  
+      • social/swagger/likes.ts  
+      • social/swagger/messages.ts  
+    – Their content should match the diff content.
+  
+  • File: tests/social/channels.test.ts  
+    – Update this test file to import socialRoutes from “social/routes.js” (and update any types if needed) exactly as shown in the diff.
+  
+  • Remove (or deprecate) the old “social.ts” file if it still exists.
+  
+  Once these changes are applied, the functionality will be exactly as before but the code is now reorganized into routes, queries, swagger definitions, and types. This reorganization minimizes the diff by simply moving code into appropriately named files and updating imports.
+</Plan>
