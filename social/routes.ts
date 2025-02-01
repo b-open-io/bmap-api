@@ -1,23 +1,25 @@
 import type { BmapTx } from 'bmapjs';
 import { Elysia, t } from 'elysia';
-import { InternalServerError, error } from 'elysia';
-import * as mongo from 'mongodb';
-import type { ChangeStream, ChangeStreamDocument, ChangeStreamInsertDocument, Db } from 'mongodb';
-import { getBAPIdByAddress } from '../bap.js';
+import type { ChangeStreamInsertDocument, Db } from 'mongodb';
+import { getBAPIdByAddress, resolveSigners } from '../bap.js';
 import type { BapIdentity } from '../bap.js';
 import { normalize } from '../bmap.js';
 import { client, readFromRedis, saveToRedis } from '../cache.js';
 import type { CacheError, CacheSigner, CacheValue } from '../cache.js';
 import { getDbo } from '../db.js';
 import { getDirectMessages, watchAllMessages, watchDirectMessages } from '../queries/messages.js';
+import { getChannels } from './queries/channels.js';
+import { fetchAllFriendsAndUnfriends, processRelationships } from './queries/friends.js';
+import { fetchBapIdentityData } from './queries/identity.js';
+import { getLikes, processLikes } from './queries/likes.js';
+import { updateSignerCache } from './queries/messages.js';
 import { ChannelResponseSchema, channelsEndpointDetail } from './swagger/channels.js';
-import type { ChannelInfo } from './swagger/channels.js';
-import type { Friend, FriendshipResponse, RelationshipState } from './swagger/friend.js';
+import { ChannelParams } from './swagger/channels.js';
 import { FriendResponseSchema, friendEndpointDetail } from './swagger/friend.js';
 import { IdentityResponseSchema, identityEndpointDetail } from './swagger/identity.js';
-import type { SigmaIdentityAPIResponse, SigmaIdentityResult } from './swagger/identity.js';
 import type { LikeInfo, LikeRequest, Reaction, Reactions } from './swagger/likes.js';
 import { LikeRequestSchema, LikeResponseSchema } from './swagger/likes.js';
+import { likesEndpointDetail } from './swagger/likes.js';
 import type { ChannelMessage, Message } from './swagger/messages.js';
 import {
   ChannelMessageSchema,
@@ -27,299 +29,10 @@ import {
   channelMessagesEndpointDetail,
   messageListenEndpointDetail,
 } from './swagger/messages.js';
-
-function sigmaIdentityToBapIdentity(result: SigmaIdentityResult): BapIdentity {
-  return {
-    idKey: result.idKey,
-    rootAddress: result.rootAddress,
-    currentAddress: result.currentAddress,
-    addresses: result.addresses,
-    identity: result.identity,
-    identityTxId: result.identityTxId,
-    block: result.block,
-    timestamp: result.timestamp,
-    valid: result.valid,
-  };
-}
-
-async function fetchBapIdentityData(bapId: string): Promise<BapIdentity> {
-  const cacheKey = `sigmaIdentity-${bapId}`;
-  const cached = await readFromRedis<CacheValue>(cacheKey);
-  if (cached?.type === 'signer') {
-    return cached.value;
-  }
-
-  const url = 'https://api.sigmaidentity.com/v1/identity/get';
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idKey: bapId }),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Failed to fetch identity data. Status: ${resp.status}, Body: ${text}`);
-  }
-
-  const data: SigmaIdentityAPIResponse = await resp.json();
-  if (data.status !== 'OK' || !data.result || data.error) {
-    throw new Error(
-      `Sigma Identity returned invalid data for ${bapId}: ${data.error || 'Unknown error'}`
-    );
-  }
-
-  const bapIdentity = sigmaIdentityToBapIdentity(data.result);
-
-  await saveToRedis<CacheValue>(cacheKey, {
-    type: 'signer',
-    value: bapIdentity,
-  });
-
-  return bapIdentity;
-}
-
-async function fetchAllFriendsAndUnfriends(
-  bapId: string
-): Promise<{ allDocs: BmapTx[]; ownedAddresses: Set<string> }> {
-  console.log('\n=== fetchAllFriendsAndUnfriends ===');
-  console.log('BAP ID:', bapId);
-
-  const dbo = await getDbo();
-
-  const idData = await fetchBapIdentityData(bapId);
-  if (!idData || !idData.addresses) {
-    throw new Error(`No identity found for ${bapId}`);
-  }
-
-  const ownedAddresses = new Set<string>(idData.addresses.map((a) => a.address));
-  console.log('Owned addresses:', [...ownedAddresses]);
-
-  // Get incoming friend requests (where this BAP ID is the target)
-  const incomingFriends = (await dbo
-    .collection('friend')
-    .find({ 'MAP.type': 'friend', 'MAP.bapID': bapId })
-    .toArray()) as unknown as BmapTx[];
-
-  console.log('Incoming friends count:', incomingFriends.length);
-  console.log(
-    'Incoming friends:',
-    JSON.stringify(
-      incomingFriends.map((f) => ({
-        txid: f.tx?.h,
-        bapID: f.MAP?.[0]?.bapID,
-        address: f.AIP?.[0]?.algorithm_signing_component || f.AIP?.[0]?.address,
-      })),
-      null,
-      2
-    )
-  );
-
-  // Get outgoing friend requests (where this BAP ID's addresses are the source)
-  const outgoingFriends = (await dbo
-    .collection('friend')
-    .find({
-      'MAP.type': 'friend',
-      $or: [
-        { 'AIP.algorithm_signing_component': { $in: [...ownedAddresses] } },
-        { 'AIP.address': { $in: [...ownedAddresses] } },
-      ],
-    })
-    .toArray()) as unknown as BmapTx[];
-
-  // Try to get unfriend documents if the collection exists
-  let incomingUnfriends: BmapTx[] = [];
-  let outgoingUnfriends: BmapTx[] = [];
-
-  try {
-    const collections = await dbo.listCollections().toArray();
-    const hasUnfriendCollection = collections.some((c) => c.name === 'unfriend');
-
-    if (hasUnfriendCollection) {
-      incomingUnfriends = (await dbo
-        .collection('unfriend')
-        .find({ 'MAP.type': 'unfriend', 'MAP.bapID': bapId })
-        .toArray()) as unknown as BmapTx[];
-
-      outgoingUnfriends = (await dbo
-        .collection('unfriend')
-        .find({
-          'MAP.type': 'unfriend',
-          $or: [
-            { 'AIP.algorithm_signing_component': { $in: [...ownedAddresses] } },
-            { 'AIP.address': { $in: [...ownedAddresses] } },
-          ],
-        })
-        .toArray()) as unknown as BmapTx[];
-    }
-  } catch (error) {
-    console.warn('Failed to query unfriend collection:', error);
-  }
-
-  console.log('Outgoing friends count:', outgoingFriends.length);
-  console.log(
-    'Outgoing friends:',
-    JSON.stringify(
-      outgoingFriends.map((f) => ({
-        txid: f.tx?.h,
-        bapID: f.MAP?.[0]?.bapID,
-        address: f.AIP?.[0]?.algorithm_signing_component || f.AIP?.[0]?.address,
-      })),
-      null,
-      2
-    )
-  );
-
-  const allDocs = [
-    ...incomingFriends,
-    ...incomingUnfriends,
-    ...outgoingFriends,
-    ...outgoingUnfriends,
-  ];
-  allDocs.sort((a, b) => (a.blk?.i ?? 0) - (b.blk?.i ?? 0));
-
-  console.log('Total documents:', allDocs.length);
-  return { allDocs, ownedAddresses };
-}
-
-async function processRelationships(
-  bapId: string,
-  docs: BmapTx[],
-  ownedAddresses: Set<string>
-): Promise<FriendshipResponse> {
-  console.log('\n=== processRelationships ===');
-  console.log('Processing relationships for BAP ID:', bapId);
-  console.log('Number of documents:', docs.length);
-  console.log('Owned addresses:', [...ownedAddresses]);
-
-  const relationships = new Map<string, RelationshipState>();
-
-  async function getRequestorBapId(doc: BmapTx): Promise<string | null> {
-    // Check all possible address fields
-    const address = doc?.AIP?.[0]?.algorithm_signing_component || doc?.AIP?.[0]?.address;
-    if (!address) {
-      console.log('No address found in document:', doc.tx?.h);
-      return null;
-    }
-
-    if (ownedAddresses.has(address)) {
-      console.log('Address matches owned address:', address);
-      return bapId;
-    }
-
-    console.log('Looking up BAP ID for address:', address);
-    const otherIdentity = await getBAPIdByAddress(address);
-    if (!otherIdentity) {
-      console.log('No identity found for address:', address);
-      return null;
-    }
-    console.log('Found BAP ID for address:', otherIdentity.idKey);
-    return otherIdentity.idKey;
-  }
-
-  const requestors = await Promise.all(docs.map((doc) => getRequestorBapId(doc)));
-  console.log('Resolved requestors:', requestors);
-
-  for (let i = 0; i < docs.length; i++) {
-    const doc = docs[i];
-    const reqBap = requestors[i];
-    const tgtBap = doc?.MAP?.[0]?.bapID;
-    const publicKey = doc?.MAP?.[0]?.publicKey;
-
-    console.log('\nProcessing document:', doc.tx?.h);
-    console.log('Requestor BAP:', reqBap);
-    console.log('Target BAP:', tgtBap);
-
-    if (!reqBap || !tgtBap || !Array.isArray(doc.MAP)) {
-      console.log('Skipping document - missing required fields');
-      continue;
-    }
-
-    const otherBapId = reqBap === bapId ? tgtBap : reqBap;
-    console.log('Other BAP ID:', otherBapId);
-
-    if (otherBapId && typeof otherBapId === 'string' && !relationships.has(otherBapId)) {
-      console.log('Creating new relationship for:', otherBapId);
-      relationships.set(otherBapId, { fromMe: false, fromThem: false, unfriended: false });
-    }
-
-    const rel = relationships.get(typeof otherBapId === 'string' ? otherBapId : '');
-    if (!rel) {
-      console.log('No relationship found for:', otherBapId);
-      continue;
-    }
-
-    const isFriend = doc?.MAP?.[0]?.type === 'friend';
-    const isUnfriend = doc?.MAP?.[0]?.type === 'unfriend';
-    const isFromMe = reqBap === bapId;
-
-    console.log('Document type:', isFriend ? 'friend' : isUnfriend ? 'unfriend' : 'unknown');
-    console.log('Is from me:', isFromMe);
-
-    if (isUnfriend) {
-      console.log('Processing unfriend');
-      rel.unfriended = true;
-      rel.fromMe = false;
-      rel.fromThem = false;
-    } else if (isFriend) {
-      console.log('Processing friend');
-      if (rel.unfriended) {
-        rel.unfriended = false;
-      }
-      if (isFromMe) {
-        rel.fromMe = true;
-        rel.mePublicKey = publicKey;
-      } else {
-        rel.fromThem = true;
-        rel.themPublicKey = publicKey;
-      }
-    }
-
-    console.log(
-      'Updated relationship:',
-      JSON.stringify({
-        otherBapId,
-        fromMe: rel.fromMe,
-        fromThem: rel.fromThem,
-        unfriended: rel.unfriended,
-      })
-    );
-  }
-
-  const friends: Friend[] = [];
-  const incoming: string[] = [];
-  const outgoing: string[] = [];
-
-  console.log('\nFinal relationships:');
-  for (const [other, rel] of relationships.entries()) {
-    console.log('Processing final relationship:', other, JSON.stringify(rel));
-
-    if (rel.unfriended) {
-      console.log('Skipping unfriended relationship:', other);
-      continue;
-    }
-    if (rel.fromMe && rel.fromThem) {
-      console.log('Adding mutual friend:', other);
-      friends.push({
-        bapID: other,
-        mePublicKey: rel.mePublicKey || '',
-        themPublicKey: rel.themPublicKey || '',
-      });
-    } else if (rel.fromMe && !rel.fromThem) {
-      console.log('Adding outgoing friend:', other);
-      outgoing.push(other);
-    } else if (!rel.fromMe && rel.fromThem) {
-      console.log('Adding incoming friend:', other);
-      incoming.push(other);
-    }
-  }
-
-  console.log('\nFinal results:');
-  console.log('Friends:', friends);
-  console.log('Incoming:', incoming);
-  console.log('Outgoing:', outgoing);
-
-  return { friends, incoming, outgoing };
-}
+import {
+  directMessagesEndpointDetail,
+  directMessagesWithTargetEndpointDetail,
+} from './swagger/messages.js';
 
 // Validation helper for signer data
 function validateSignerData(signer: BapIdentity): { isValid: boolean; errors: string[] } {
@@ -335,228 +48,6 @@ function validateSignerData(signer: BapIdentity): { isValid: boolean; errors: st
     errors,
   };
 }
-
-// Helper function to merge new signers into cache
-async function updateSignerCache(newSigners: BapIdentity[]): Promise<void> {
-  for (const signer of newSigners) {
-    const signerKey = `signer-${signer.currentAddress}`;
-    await saveToRedis<CacheValue>(signerKey, {
-      type: 'signer',
-      value: signer,
-    });
-  }
-  // Clear the identities cache to force a refresh with new signers
-  await client.del('identities');
-}
-
-// Helper function to resolve signers from messages
-async function resolveSigners(messages: Message[]): Promise<BapIdentity[]> {
-  const signerAddresses = new Set<string>();
-
-  for (const msg of messages) {
-    if (msg.AIP && Array.isArray(msg.AIP)) {
-      for (const aip of msg.AIP) {
-        const address = aip.algorithm_signing_component || aip.address;
-        if (address) {
-          signerAddresses.add(address);
-        }
-      }
-    }
-  }
-
-  const signers = await Promise.all(
-    Array.from(signerAddresses).map(async (address) => {
-      try {
-        const identity = await getBAPIdByAddress(address);
-        if (identity) {
-          // Update the signer cache with this identity
-          const signerKey = `signer-${address}`;
-          await saveToRedis<CacheValue>(signerKey, {
-            type: 'signer',
-            value: identity,
-          });
-          return identity;
-        }
-      } catch (error) {
-        console.error(`Failed to resolve signer for address ${address}:`, error);
-      }
-      return null;
-    })
-  );
-
-  const validSigners = signers.filter((s): s is BapIdentity => s !== null);
-
-  // Update the cache with new signers
-  await updateSignerCache(validSigners);
-
-  return validSigners;
-}
-
-async function getChannels() {
-  try {
-    const cacheKey = 'channels';
-    const cached = await readFromRedis<CacheValue>(cacheKey);
-
-    console.log('channels cache key', cacheKey);
-    if (cached?.type === 'channels') {
-      console.log('Cache hit for channels');
-      return cached.value;
-    }
-
-    console.log('Cache miss for channels');
-    const db = await getDbo();
-
-    try {
-      const pipeline = [
-        {
-          $match: {
-            'MAP.channel': { $exists: true, $ne: '' },
-          },
-        },
-        {
-          $unwind: '$MAP',
-        },
-        {
-          $unwind: '$B',
-        },
-        {
-          $group: {
-            _id: '$MAP.channel',
-            channel: { $first: '$MAP.channel' },
-            creator: { $first: { $ifNull: ['$MAP.paymail', null] } },
-            last_message: { $last: { $ifNull: ['$B.Data.utf8', null] } },
-            last_message_time: { $max: '$blk.t' },
-            messages: { $sum: 1 },
-          },
-        },
-        {
-          $sort: { last_message_time: -1 },
-        },
-        {
-          $limit: 100,
-        },
-      ];
-
-      console.log('Executing MongoDB aggregation');
-      const results = await db.collection('message').aggregate(pipeline).toArray();
-      console.log('Aggregation results:', results.length);
-
-      const channels = results.map((r) => ({
-        channel: r.channel,
-        creator: r.creator || null,
-        last_message: r.last_message || null,
-        last_message_time: r.last_message_time,
-        messages: r.messages,
-      }));
-
-      await saveToRedis<CacheValue>(cacheKey, {
-        type: 'channels',
-        value: channels,
-      });
-
-      return channels;
-    } catch (dbError) {
-      console.error('MongoDB operation failed:', dbError);
-      throw new Error('Failed to fetch channels');
-    }
-  } catch (error) {
-    console.error('getChannels error:', error);
-    throw error;
-  }
-}
-
-// Helper to process likes with better error handling and logging
-async function processLikes(
-  likes: Reaction[]
-): Promise<{ signerIds: string[]; signers: BapIdentity[] }> {
-  console.log('Processing likes:', likes.length);
-
-  // Get unique signer addresses with validation
-  const signerAddresses = new Set<string>();
-  const invalidLikes: string[] = [];
-
-  for (const like of likes) {
-    if (!Array.isArray(like.AIP)) {
-      console.warn('Invalid like document - missing AIP array:', like.tx?.h);
-      invalidLikes.push(like.tx?.h);
-      continue;
-    }
-
-    for (const aip of like.AIP) {
-      if (!aip.algorithm_signing_component) {
-        console.warn('Invalid AIP entry - missing algorithm_signing_component:', like.tx?.h);
-        continue;
-      }
-      signerAddresses.add(aip.algorithm_signing_component);
-    }
-  }
-
-  if (invalidLikes.length > 0) {
-    console.warn('Found invalid like documents:', invalidLikes);
-  }
-
-  console.log('Found unique signer addresses:', signerAddresses.size);
-
-  // Fetch and validate signer identities
-  const signerIds = Array.from(signerAddresses);
-  const signerResults = await Promise.all(
-    signerIds.map(async (address) => {
-      const signerCacheKey = `signer-${address}`;
-      const cachedSigner = await readFromRedis<CacheValue>(signerCacheKey);
-
-      if (cachedSigner?.type === 'signer' && cachedSigner.value) {
-        const validation = validateSignerData(cachedSigner.value);
-        if (!validation.isValid) {
-          console.warn(
-            'Invalid cached signer data for address:',
-            address,
-            'Errors:',
-            validation.errors
-          );
-          return null;
-        }
-        return cachedSigner.value;
-      }
-
-      try {
-        const identity = await getBAPIdByAddress(address);
-        if (identity) {
-          const validation = validateSignerData(identity);
-          if (!validation.isValid) {
-            console.warn(
-              'Invalid fetched signer data for address:',
-              address,
-              'Errors:',
-              validation.errors
-            );
-            return null;
-          }
-
-          await saveToRedis<CacheValue>(signerCacheKey, {
-            type: 'signer',
-            value: identity,
-          });
-          return identity;
-        }
-      } catch (error) {
-        console.error(`Failed to fetch identity for address ${address}:`, error);
-      }
-      return null;
-    })
-  );
-
-  const validSigners = signerResults.filter((s): s is BapIdentity => s !== null);
-  console.log('Successfully processed signers:', validSigners.length);
-
-  return {
-    signerIds: validSigners.map((s) => s.idKey),
-    signers: validSigners,
-  };
-}
-
-const ChannelParams = t.Object({
-  channelId: t.String(),
-});
 
 export const socialRoutes = new Elysia()
   .get(
@@ -826,87 +317,7 @@ export const socialRoutes = new Elysia()
     {
       body: LikeRequestSchema,
       response: LikeResponseSchema,
-      detail: {
-        tags: ['social'],
-        description: 'Get likes for transactions or messages',
-        summary: 'Get likes',
-        requestBody: {
-          description: 'Transaction IDs or Message IDs to get likes for',
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  txids: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'List of transaction IDs',
-                  },
-                  messageIds: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'List of message IDs',
-                  },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          200: {
-            description: 'Likes with signer information',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      txid: { type: 'string' },
-                      likes: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            tx: { type: 'object', properties: { h: { type: 'string' } } },
-                            blk: {
-                              type: 'object',
-                              properties: {
-                                i: { type: 'number' },
-                                t: { type: 'number' },
-                              },
-                            },
-                            MAP: {
-                              type: 'array',
-                              items: {
-                                type: 'object',
-                                properties: {
-                                  type: { type: 'string' },
-                                  tx: { type: 'string' },
-                                  messageID: { type: 'string' },
-                                  emoji: { type: 'string' },
-                                },
-                              },
-                            },
-                          },
-                        },
-                      },
-                      total: { type: 'number' },
-                      signers: {
-                        type: 'array',
-                        items: {
-                          $ref: '#/components/schemas/BapIdentity',
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      detail: likesEndpointDetail,
     }
   )
   .get(
@@ -994,19 +405,7 @@ export const socialRoutes = new Elysia()
       params: t.Object({ bapId: t.String() }),
       query: MessageQuery,
       response: DMResponseSchema,
-      detail: {
-        tags: ['social'],
-        description: 'Get encrypted direct messages for a BAP ID',
-        parameters: [
-          {
-            name: 'bapId',
-            in: 'path',
-            required: true,
-            schema: { type: 'string' },
-            description: 'Recipient BAP Identity Key',
-          },
-        ],
-      },
+      detail: directMessagesEndpointDetail,
     }
   )
   .get(
@@ -1039,26 +438,7 @@ export const socialRoutes = new Elysia()
       params: t.Object({ bapId: t.String(), targetBapId: t.String() }),
       query: MessageQuery,
       response: DMResponseSchema,
-      detail: {
-        tags: ['social'],
-        description: 'Get encrypted direct messages between two BAP IDs',
-        parameters: [
-          {
-            name: 'bapId',
-            in: 'path',
-            required: true,
-            schema: { type: 'string' },
-            description: 'Recipient BAP Identity Key',
-          },
-          {
-            name: 'targetBapId',
-            in: 'path',
-            required: true,
-            schema: { type: 'string' },
-            description: 'Target BAP Identity Key',
-          },
-        ],
-      },
+      detail: directMessagesWithTargetEndpointDetail,
     }
   )
   .ws('/@/:bapId/messages/:targetBapId/listen', {
@@ -1218,25 +598,6 @@ export const socialRoutes = new Elysia()
     },
     {
       response: IdentityResponseSchema,
-      detail: {
-        tags: ['identities'],
-        description: 'Get all known BAP identities',
-        summary: 'List identities',
-        responses: {
-          200: {
-            description: 'List of BAP identities',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'array',
-                  items: {
-                    $ref: '#/components/schemas/BapIdentity',
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      detail: identityEndpointDetail,
     }
   );

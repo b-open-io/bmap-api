@@ -101,3 +101,7 @@ export const channelsEndpointDetail: OpenAPIV3.OperationObject = {
     },
   },
 };
+
+export const ChannelParams = t.Object({
+  channelId: t.String(),
+});

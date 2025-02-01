@@ -54,76 +54,10 @@ export const identityEndpointDetail: OpenAPIV3.OperationObject = {
       content: {
         'application/json': {
           schema: {
-            type: 'array' as const,
+            type: 'array',
             items: {
-              type: 'object' as const,
-              properties: {
-                idKey: {
-                  type: 'string' as const,
-                  description: 'Identity key',
-                },
-                rootAddress: {
-                  type: 'string' as const,
-                  description: 'Root address',
-                },
-                currentAddress: {
-                  type: 'string' as const,
-                  description: 'Current address',
-                },
-                addresses: {
-                  type: 'array' as const,
-                  items: {
-                    type: 'object' as const,
-                    properties: {
-                      address: {
-                        type: 'string' as const,
-                        description: 'Bitcoin address',
-                      },
-                      txId: {
-                        type: 'string' as const,
-                        description: 'Transaction ID',
-                      },
-                      block: {
-                        type: 'number' as const,
-                        description: 'Block number',
-                        nullable: true,
-                      },
-                    },
-                  },
-                },
-                identity: {
-                  type: 'string' as const,
-                  description: 'Identity data',
-                },
-                identityTxId: {
-                  type: 'string' as const,
-                  description: 'Identity transaction ID',
-                },
-                block: {
-                  type: 'number' as const,
-                  description: 'Block number',
-                },
-                timestamp: {
-                  type: 'number' as const,
-                  description: 'Timestamp',
-                },
-                valid: {
-                  type: 'boolean' as const,
-                  description: 'Validity flag',
-                },
-              },
+              $ref: '#/components/schemas/BapIdentity',
             },
-          },
-        },
-      },
-    },
-    '500': {
-      description: 'Internal Server Error',
-      content: {
-        'application/json': {
-          schema: {
-            type: 'array' as const,
-            items: {},
           },
         },
       },

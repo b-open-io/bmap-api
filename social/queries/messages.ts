@@ -1,5 +1,5 @@
 import type { BapIdentity } from '../../bap.js';
-import { getBAPIdByAddress } from '../../bap.js';
+import { getBAPIdByAddress, resolveSigners } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { client, readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
@@ -16,49 +16,6 @@ export async function updateSignerCache(newSigners: BapIdentity[]): Promise<void
   }
   // Clear the identities cache to force a refresh with new signers
   await client.del('identities');
-}
-
-// Helper function to resolve signers from messages
-export async function resolveSigners(messages: Message[]): Promise<BapIdentity[]> {
-  const signerAddresses = new Set<string>();
-
-  for (const msg of messages) {
-    if (msg.AIP && Array.isArray(msg.AIP)) {
-      for (const aip of msg.AIP) {
-        const address = aip.algorithm_signing_component || aip.address;
-        if (address) {
-          signerAddresses.add(address);
-        }
-      }
-    }
-  }
-
-  const signers = await Promise.all(
-    Array.from(signerAddresses).map(async (address) => {
-      try {
-        const identity = await getBAPIdByAddress(address);
-        if (identity) {
-          // Update the signer cache with this identity
-          const signerKey = `signer-${address}`;
-          await saveToRedis<CacheValue>(signerKey, {
-            type: 'signer',
-            value: identity,
-          });
-          return identity;
-        }
-      } catch (error) {
-        console.error(`Failed to resolve signer for address ${address}:`, error);
-      }
-      return null;
-    })
-  );
-
-  const validSigners = signers.filter((s): s is BapIdentity => s !== null);
-
-  // Update the cache with new signers
-  await updateSignerCache(validSigners);
-
-  return validSigners;
 }
 
 export async function getChannelMessages(params: {

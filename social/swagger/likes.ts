@@ -97,3 +97,85 @@ export const LikeResponseSchema = t.Array(
     ),
   })
 );
+
+export const likesEndpointDetail: OpenAPIV3.OperationObject = {
+  tags: ['social'],
+  description: 'Get likes for transactions or messages',
+  summary: 'Get likes',
+  requestBody: {
+    description: 'Transaction IDs or Message IDs to get likes for',
+    required: true,
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            txids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'List of transaction IDs',
+            },
+            messageIds: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'List of message IDs',
+            },
+          },
+        },
+      },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Likes with signer information',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                txid: { type: 'string' },
+                likes: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      tx: { type: 'object', properties: { h: { type: 'string' } } },
+                      blk: {
+                        type: 'object',
+                        properties: {
+                          i: { type: 'number' },
+                          t: { type: 'number' },
+                        },
+                      },
+                      MAP: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            type: { type: 'string' },
+                            tx: { type: 'string' },
+                            messageID: { type: 'string' },
+                            emoji: { type: 'string' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                total: { type: 'number' },
+                signers: {
+                  type: 'array',
+                  items: {
+                    $ref: '#/components/schemas/BapIdentity',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};

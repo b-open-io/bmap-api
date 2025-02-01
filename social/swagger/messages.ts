@@ -84,8 +84,8 @@ export const ChannelMessageSchema = t.Object({
         t.Array(
           t.Object({
             algorithm: t.String(),
-            address: t.String(),
-            algorithm_signing_component: t.String(),
+            address: t.Optional(t.String()),
+            algorithm_signing_component: t.Optional(t.String()),
           })
         )
       ),
@@ -242,7 +242,6 @@ export const channelMessagesEndpointDetail: OpenAPIV3.OperationObject = {
     },
   },
 };
-
 export const MessageListenParams = t.Object({
   params: t.Object({
     bapId: t.String(),
@@ -361,3 +360,62 @@ export const DMResponseSchema = t.Object({
     })
   ),
 });
+
+export const directMessagesEndpointDetail: OpenAPIV3.OperationObject = {
+  tags: ['social'],
+  description: 'Get encrypted direct messages for a BAP ID',
+  parameters: [
+    {
+      name: 'bapId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Recipient BAP Identity Key',
+    },
+  ],
+  responses: {
+    '200': {
+      description: 'Direct messages for BAP ID',
+      content: {
+        'application/json': {
+          schema: {
+            $ref: '#/components/schemas/DMResponse',
+          },
+        },
+      },
+    },
+  },
+};
+
+export const directMessagesWithTargetEndpointDetail: OpenAPIV3.OperationObject = {
+  tags: ['social'],
+  description: 'Get encrypted direct messages between two BAP IDs',
+  parameters: [
+    {
+      name: 'bapId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Recipient BAP Identity Key',
+    },
+    {
+      name: 'targetBapId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Target BAP Identity Key',
+    },
+  ],
+  responses: {
+    '200': {
+      description: 'Direct messages between BAP IDs',
+      content: {
+        'application/json': {
+          schema: {
+            $ref: '#/components/schemas/DMResponse',
+          },
+        },
+      },
+    },
+  },
+};
