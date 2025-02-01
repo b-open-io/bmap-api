@@ -3,7 +3,7 @@ import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
-import type { LikeRequest, LikeInfo, Reaction } from '../swagger/likes.js';
+import type { LikeInfo, LikeRequest, Reaction } from '../swagger/likes.js';
 import { validateSignerData } from './identity.js';
 
 // Helper to process likes with better error handling and logging

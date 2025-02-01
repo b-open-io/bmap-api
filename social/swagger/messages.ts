@@ -1,7 +1,7 @@
+import type { BmapTx } from 'bmapjs';
 import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
 import type { BapIdentity } from '../../bap.js';
-import type { BmapTx } from 'bmapjs';
 
 export interface Message {
   tx: {

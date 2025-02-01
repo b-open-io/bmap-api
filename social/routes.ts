@@ -15,11 +15,8 @@ import type { ChannelInfo } from './swagger/channels.js';
 import type { Friend, FriendshipResponse, RelationshipState } from './swagger/friend.js';
 import { FriendResponseSchema, friendEndpointDetail } from './swagger/friend.js';
 import { IdentityResponseSchema, identityEndpointDetail } from './swagger/identity.js';
-import type {
-  SigmaIdentityAPIResponse,
-  SigmaIdentityResult,
-} from './swagger/identity.js';
-import type { LikeRequest, LikeInfo, Reaction, Reactions } from './swagger/likes.js';
+import type { SigmaIdentityAPIResponse, SigmaIdentityResult } from './swagger/identity.js';
+import type { LikeInfo, LikeRequest, Reaction, Reactions } from './swagger/likes.js';
 import { LikeRequestSchema, LikeResponseSchema } from './swagger/likes.js';
 import type { ChannelMessage, Message } from './swagger/messages.js';
 import {

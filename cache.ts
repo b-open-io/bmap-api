@@ -5,18 +5,9 @@ import type { BapIdentity } from './bap.js';
 import type { TimeSeriesData } from './chart.js';
 import { getCurrentBlockHeight } from './db.js';
 // we moved the social files to the social folder
-import type {
-  ChannelInfo,
-} from './social/swagger/channels.js';
-import type {
-  LikeInfo,
-  Reactions,
-} from './social/swagger/likes.js';
-import type {
-  ChannelMessage,
-  DMResponse,
-} from './social/swagger/messages.js';
-
+import type { ChannelInfo } from './social/swagger/channels.js';
+import type { LikeInfo, Reactions } from './social/swagger/likes.js';
+import type { ChannelMessage, DMResponse } from './social/swagger/messages.js';
 
 const client = redis.createClient({
   url: process.env.REDIS_PRIVATE_URL,

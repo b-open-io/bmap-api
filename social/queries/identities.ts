@@ -1,7 +1,7 @@
 import type { BapIdentity } from '../../bap.js';
+import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheError, CacheValue } from '../../cache.js';
 import { client, readFromRedis, saveToRedis } from '../../cache.js';
-import { getBAPIdByAddress } from '../../bap.js';
 import { validateSignerData } from './identity.js';
 
 export async function getAllIdentities(): Promise<BapIdentity[]> {
