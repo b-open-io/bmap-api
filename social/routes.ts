@@ -16,11 +16,10 @@ import type { Friend, FriendshipResponse, RelationshipState } from './swagger/fr
 import { FriendResponseSchema, friendEndpointDetail } from './swagger/friend.js';
 import { IdentityResponseSchema, identityEndpointDetail } from './swagger/identity.js';
 import type {
-  Identity,
   SigmaIdentityAPIResponse,
   SigmaIdentityResult,
 } from './swagger/identity.js';
-import type { LikeRequest, LikeResponse, Reaction, Reactions } from './swagger/likes.js';
+import type { LikeRequest, LikeInfo, Reaction, Reactions } from './swagger/likes.js';
 import { LikeRequestSchema, LikeResponseSchema } from './swagger/likes.js';
 import type { ChannelMessage, Message } from './swagger/messages.js';
 import {
@@ -776,7 +775,7 @@ export const socialRoutes = new Elysia()
         }
 
         const db = await getDbo();
-        const results: LikeResponse[] = [];
+        const results: LikeInfo[] = [];
 
         if (request.txids) {
           for (const txid of request.txids) {

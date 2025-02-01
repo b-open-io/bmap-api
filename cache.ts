@@ -4,12 +4,19 @@ import redis from 'redis';
 import type { BapIdentity } from './bap.js';
 import type { TimeSeriesData } from './chart.js';
 import { getCurrentBlockHeight } from './db.js';
+// we moved the social files to the social folder
+import type {
+  ChannelInfo,
+} from './social/swagger/channels.js';
+import type {
+  LikeInfo,
+  Reactions,
+} from './social/swagger/likes.js';
+import type {
+  ChannelMessage,
+  DMResponse,
+} from './social/swagger/messages.js';
 
-import type { DMResponse } from './queries/messages.js';
-// Import interfaces from social.ts
-import type { ChannelInfo } from './social/swagger/channels.js';
-import type { LikeResponse, Reactions } from './social/swagger/likes.js';
-import type { ChannelMessage } from './social/swagger/messages.js';
 
 const client = redis.createClient({
   url: process.env.REDIS_PRIVATE_URL,
@@ -46,7 +53,7 @@ export type CacheValue =
   | { type: 'tx'; value: BmapTx }
   | { type: 'count'; value: Record<string, number>[] }
   | { type: 'signer'; value: BapIdentity }
-  | { type: 'likes'; value: LikeResponse }
+  | { type: 'likes'; value: LikeInfo }
   | { type: 'channels'; value: ChannelInfo[] }
   | { type: 'messages'; value: ChannelMessage | DMResponse }
   | { type: 'blockHeight'; value: number }

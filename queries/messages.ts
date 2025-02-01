@@ -3,21 +3,13 @@ import type { ChangeStream } from 'mongodb';
 import type { BapIdentity } from '../bap.js';
 import { getBAPIdByAddress } from '../bap.js';
 import { getDbo } from '../db.js';
+import type { DMResponse } from '../social/swagger/messages.js';
 
 interface MessageQueryParams {
   bapId: string;
   bapAddress: string;
   targetBapId?: string;
   targetAddress?: string;
-}
-
-export interface DMResponse {
-  bapID: string;
-  page: number;
-  limit: number;
-  count: number;
-  results: BmapTx[];
-  signers: BapIdentity[];
 }
 
 interface DirectMessagesParams {

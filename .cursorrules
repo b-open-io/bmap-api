@@ -53,7 +53,9 @@ Core Files:
 - **`chart.ts`**: Chart generation using Chart.js/canvas
 - **`bap.ts`**: BAP identity management
 - **`actions.ts`**: Transaction saving and database operations
-- **`social.ts`**: Social feature endpoints (friends, likes, identities)
+- **`social/routes.ts`**: Social feature endpoints (friends, likes, identities)
+- **`social/queries/`**: Social feature query functions
+- **`social/swagger/`**: Social feature OpenAPI definitions
 - **`types.ts`**: Shared TypeScript types and interfaces
 - **`bmap.ts`**: BMAP transaction normalization
 

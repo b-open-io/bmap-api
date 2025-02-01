@@ -1,6 +1,7 @@
 import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
 import type { BapIdentity } from '../../bap.js';
+import type { BmapTx } from 'bmapjs';
 
 export interface Message {
   tx: {
@@ -288,6 +289,15 @@ export const messageListenEndpointDetail: OpenAPIV3.OperationObject = {
   },
 };
 
+export interface DMResponse {
+  bapID: string;
+  page: number;
+  limit: number;
+  count: number;
+  results: BmapTx[];
+  signers: BapIdentity[];
+}
+
 export const DMResponseSchema = t.Object({
   bapID: t.String(),
   page: t.Number(),
@@ -295,7 +305,6 @@ export const DMResponseSchema = t.Object({
   count: t.Number(),
   results: t.Array(
     t.Object({
-      timestamp: t.Number(),
       tx: t.Object({
         h: t.String(),
       }),

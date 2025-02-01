@@ -1,10 +1,10 @@
 import type { BapIdentity } from '../../bap.js';
 import type { CacheError, CacheValue } from '../../cache.js';
 import { client, readFromRedis, saveToRedis } from '../../cache.js';
-import type { Identity } from '../swagger/identity.js';
+import { getBAPIdByAddress } from '../../bap.js';
 import { validateSignerData } from './identity.js';
 
-export async function getAllIdentities(): Promise<Identity[]> {
+export async function getAllIdentities(): Promise<BapIdentity[]> {
   // Check Redis connection
   console.log('Checking Redis connection...');
   if (!client.isReady) {
@@ -71,7 +71,7 @@ export async function getAllIdentities(): Promise<Identity[]> {
     })
   );
 
-  const filteredIdentities = identities.filter((id): id is Identity => {
+  const filteredIdentities = identities.filter((id): id is BapIdentity => {
     if (!id) return false;
     return (
       typeof id.idKey === 'string' &&

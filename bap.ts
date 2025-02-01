@@ -4,20 +4,34 @@ import { normalize } from './bmap.js';
 import { type CacheValue, readFromRedis, saveToRedis } from './cache.js';
 const { uniq, uniqBy } = _;
 
+interface BapAddress {
+  address: string;
+  txId: string;
+  block?: number;
+}
+
+export interface BapIdentityObject {
+  alternateName?: string;
+  name?: string;
+  description?: string;
+  url?: string;
+  image?: string;
+  [key: string]: unknown;
+}
+
 export type BapIdentity = {
-  idKey: string;
   rootAddress: string;
   currentAddress: string;
-  addresses: {
-    address: string;
-    txId: string;
-    block: number | undefined;
-  }[];
-  identity: string | { [key: string]: any };
+  addresses: BapAddress[];
+  identity: string | BapIdentityObject;
   identityTxId: string;
+  idKey: string;
   block: number;
   timestamp: number;
   valid: boolean;
+  paymail?: string;
+  displayName?: string;
+  icon?: string;
 };
 
 const bapApiUrl = 'https://api.sigmaidentity.com/v1/';

@@ -3,7 +3,7 @@ import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
-import type { LikeRequest, LikeResponse, Reaction } from '../swagger/likes.js';
+import type { LikeRequest, LikeInfo, Reaction } from '../swagger/likes.js';
 import { validateSignerData } from './identity.js';
 
 // Helper to process likes with better error handling and logging
@@ -95,13 +95,13 @@ export async function processLikes(
   };
 }
 
-export async function getLikes(request: LikeRequest): Promise<LikeResponse[]> {
+export async function getLikes(request: LikeRequest): Promise<LikeInfo[]> {
   if (!request.txids && !request.messageIds) {
     throw new Error('Must provide either txids or messageIds');
   }
 
   const db = await getDbo();
-  const results: LikeResponse[] = [];
+  const results: LikeInfo[] = [];
 
   if (request.txids) {
     for (const txid of request.txids) {

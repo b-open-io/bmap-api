@@ -17,23 +17,7 @@ export interface SigmaIdentityResult {
     txId: string;
     block: number | undefined;
   }[];
-  identity: string | BapIdentity;
-  identityTxId: string;
-  block: number;
-  timestamp: number;
-  valid: boolean;
-}
-
-export interface Identity {
-  idKey: string;
-  rootAddress: string;
-  currentAddress: string;
-  addresses: {
-    address: string;
-    txId: string;
-    block: number | undefined;
-  }[];
-  identity: string | { [key: string]: any };
+  identity: string;
   identityTxId: string;
   block: number;
   timestamp: number;
@@ -52,7 +36,7 @@ export const IdentityResponseSchema = t.Array(
         block: t.Optional(t.Number()),
       })
     ),
-    identity: t.Union([t.String(), t.Record(t.String(), t.Any())]),
+    identity: t.String(),
     identityTxId: t.String(),
     block: t.Number(),
     timestamp: t.Number(),

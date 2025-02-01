@@ -19,23 +19,12 @@ export interface Reaction {
     t: number;
   };
   MAP: {
-    app: string;
     type: string;
-    paymail?: string;
-    context?: string;
-    channel?: string;
-    bapID?: string;
-  }[];
-  B: {
-    encoding: string;
-    Data: {
-      utf8: string;
-      data?: string;
-    };
+    tx?: string;
+    messageID?: string;
+    emoji?: string;
   }[];
   AIP?: {
-    algorithm: string;
-    address: string;
     algorithm_signing_component: string;
   }[];
 }
@@ -45,7 +34,7 @@ export interface LikeRequest {
   messageIds?: string[];
 }
 
-export interface LikeResponse {
+export interface LikeInfo {
   txid: string;
   likes: Reaction[];
   total: number;
