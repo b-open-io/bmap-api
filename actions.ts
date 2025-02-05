@@ -41,6 +41,9 @@ export const saveTx = async (tx: BmapTx) => {
     const collection = dbo.collection(collectionName);
     console.log('Saving to collection:', collectionName);
 
+    if (!t.timestamp) {
+        t.timestamp = Math.floor(Date.now() / 1000);
+    }
     const normalizedTx = normalize(t);
     console.log('Normalized transaction:', JSON.stringify(normalizedTx, null, 2));
 
