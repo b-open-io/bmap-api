@@ -14,6 +14,7 @@ export interface TransformedTx extends BmapTx {
     algorithm_signing_component?: string;
     address?: string;
   }[];
+  timestamp: number;
 }
 
 export enum Timeframe {

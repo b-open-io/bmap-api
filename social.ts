@@ -1307,10 +1307,11 @@ export const socialRoutes = new Elysia()
     }
   )
   .get(
-    '/@/:bapId/messages/:targetBapId',
+    '/@/:bapId/:status/:targetBapId',
     async ({ params, query, set }) => {
       try {
         const response = await getDirectMessages({
+          collection: params.status === "unconfirmed" ? "u" : "message",
           bapId: params.bapId,
           targetBapId: params.targetBapId,
           page: query.page ? Number.parseInt(query.page, 10) : 1,
@@ -1333,7 +1334,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
-      params: t.Object({ bapId: t.String(), targetBapId: t.String() }),
+      params: t.Object({ bapId: t.String(), status: t.String(), targetBapId: t.String() }),
       query: MessageQuery,
       response: DMResponse,
       detail: {
@@ -1346,6 +1347,13 @@ export const socialRoutes = new Elysia()
             required: true,
             schema: { type: 'string' },
             description: 'Recipient BAP Identity Key',
+          },
+          {
+            name: 'status',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', enum: ["messages", "unconfirmed"] },
+            description: 'Confirmation status of message.',
           },
           {
             name: 'targetBapId',
@@ -1560,11 +1568,13 @@ export const socialRoutes = new Elysia()
 
 // Shared function for fetching messages
 async function getDirectMessages({
+  collection = 'message',
   bapId,
   targetBapId = null,
   page = 1,
   limit = 100,
 }: {
+  collection?: string,
   bapId: string;
   targetBapId?: string | null;
   page: number;
@@ -1604,6 +1614,7 @@ async function getDirectMessages({
               },
             ],
           },
+          collection === "u" ? {"timestamp": {"$gt": Math.floor(Date.now() / 1000) - 3600}} : {},
         ],
       }
     : {
@@ -1611,7 +1622,7 @@ async function getDirectMessages({
         'MAP.bapID': bapId,
       };
 
-  const col = db.collection('message');
+  const col = db.collection(collection);
   const results = (await col
     .find(messageQuery)
     .sort({ 'blk.t': -1 })
