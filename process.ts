@@ -78,6 +78,11 @@ export const processTransaction = async (data: Partial<Transaction>): Promise<Bm
     const normalizedTx = normalize(t);
     console.log('Normalized transaction:', JSON.stringify(normalizedTx, null, 2));
 
+    // Add timestamp for unconfirmed transactions
+    if (!normalizedTx.blk?.t) {
+      normalizedTx.timestamp = Math.floor(Date.now() / 1000);
+    }
+
     // Save to collection based on MAP.type
     const dbo = await getDbo();
     const mapType = normalizedTx.MAP?.[0]?.type;
