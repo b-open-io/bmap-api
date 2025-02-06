@@ -270,3 +270,6 @@ sed -i '' '7s/^old/new/' file.txt
 # 3. Verify the change
 sed -n '7p' file.txt
 ```
+
+# mongo playground
+feel free to use the create playground files in the repo to test mongo queries. i can run them for you and tell you the output.

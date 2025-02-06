@@ -6,6 +6,7 @@ import type { TimeSeriesData } from './chart.js';
 import { getCurrentBlockHeight } from './db.js';
 // we moved the social files to the social folder
 import type { ChannelInfo } from './social/swagger/channels.js';
+import type { Friend } from './social/swagger/friend.js';
 import type { LikeInfo, Reactions } from './social/swagger/likes.js';
 import type { ChannelMessage, DMResponse } from './social/swagger/messages.js';
 
@@ -52,7 +53,8 @@ export type CacheValue =
   | { type: 'chart'; value: ChartCacheData }
   | { type: 'timeSeriesData'; value: TimeSeriesData }
   | { type: 'reactions'; value: Reactions }
-  | { type: 'identities'; value: BapIdentity[] };
+  | { type: 'identities'; value: BapIdentity[] }
+  | { type: 'friends'; value: { friends: Friend[]; incoming: string[]; outgoing: string[] } };
 
 export async function saveToRedis<T extends CacheValue>(key: string, value: T): Promise<void> {
   await client.set(key, JSON.stringify(value));

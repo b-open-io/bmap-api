@@ -4,6 +4,7 @@ import type { BapIdentity } from '../bap.js';
 import { getBAPIdByAddress } from '../bap.js';
 import { getDbo } from '../db.js';
 import type { DMResponse } from '../social/swagger/messages.js';
+import { fetchBapIdentityData } from '../social/queries/identity.js';
 
 interface MessageQueryParams {
   bapId: string;
@@ -31,14 +32,41 @@ export async function getDirectMessages({
   const dbo = await getDbo();
   const skip = (page - 1) * limit;
 
+  // Get current address for BAP ID
+  const identity = await fetchBapIdentityData(bapId);
+  if (!identity?.currentAddress) {
+    throw new Error('Invalid BAP identity');
+  }
+
+  // Add this block to fetch target identity
+  let targetIdentity: BapIdentity | null = null;
+  if (targetBapId) {
+    targetIdentity = await fetchBapIdentityData(targetBapId);
+    if (!targetIdentity?.currentAddress) {
+      throw new Error('Invalid target BAP identity');
+    }
+  }
+
   const query = targetBapId
     ? {
-        $or: [
-          { 'MAP.bapID': bapId, 'MAP.targetBapID': targetBapId },
-          { 'MAP.bapID': targetBapId, 'MAP.targetBapID': bapId },
+        $and: [
+          { 'MAP.type': 'message' },
+          {
+            $or: [
+              {
+                'MAP.bapID': targetBapId,
+                'AIP.algorithm_signing_component': identity.currentAddress,
+              },
+              {
+                'MAP.bapID': bapId,
+                'AIP.algorithm_signing_component': targetIdentity.currentAddress,
+              },
+            ],
+          },
         ],
       }
     : {
+        'MAP.type': 'message',
         'MAP.bapID': bapId,
       };
 
