@@ -1,12 +1,12 @@
 import type { Transaction } from '@gorillapool/js-junglebus';
 import bmapjs, { type BmapTx, type BobTx } from 'bmapjs';
 import { parse } from 'bpu-ts';
-import { getDbo } from './db.js';
-import { normalize } from './bmap.js';
+import chalk from 'chalk';
 import { getBAPIdByAddress } from './bap.js';
 import type { BapIdentity } from './bap.js';
+import { normalize } from './bmap.js';
+import { getDbo } from './db.js';
 import type { TransformedTx } from './types.js';
-import chalk from 'chalk';
 
 const { allProtocols, TransformTx } = bmapjs;
 
@@ -33,7 +33,10 @@ export const processTransaction = async (data: Partial<Transaction>): Promise<Bm
 
     console.log('Parsed BOB:', JSON.stringify(bob, null, 2));
 
-    console.log('Transforming transaction with bmapjs...', allProtocols.map((p) => p.name));
+    console.log(
+      'Transforming transaction with bmapjs...',
+      allProtocols.map((p) => p.name)
+    );
     const tx = await TransformTx(
       bob as BobTx,
       allProtocols.map((p) => p.name)
@@ -80,11 +83,9 @@ export const processTransaction = async (data: Partial<Transaction>): Promise<Bm
     const mapType = normalizedTx.MAP?.[0]?.type;
     if (mapType) {
       console.log('Saving to collection based on MAP.type:', mapType);
-      await dbo.collection(mapType).updateOne(
-        { 'tx.h': normalizedTx.tx.h },
-        { $set: normalizedTx },
-        { upsert: true }
-      );
+      await dbo
+        .collection(mapType)
+        .updateOne({ 'tx.h': normalizedTx.tx.h }, { $set: normalizedTx }, { upsert: true });
       console.log(chalk.green(normalizedTx.tx.h));
     }
 
