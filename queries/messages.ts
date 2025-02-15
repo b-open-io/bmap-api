@@ -101,6 +101,9 @@ export async function getDirectMessages({
     count,
     results: results.map((msg) => ({
       ...msg,
+      tx: { h: msg.tx?.h || '' },
+      blk: msg.blk || { i: 0, t: 0 },
+      timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
       MAP: msg.MAP.map((m) => ({
         ...m,
         bapID: m.bapID || '',

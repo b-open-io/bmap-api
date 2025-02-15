@@ -464,7 +464,7 @@ export const socialRoutes = new Elysia()
       });
 
       cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
-        ws.send(change.fullDocument?._id);
+        ws.send(change.fullDocument?.tx.h);
       });
     },
     detail: messageListenEndpointDetail,
@@ -486,7 +486,7 @@ export const socialRoutes = new Elysia()
 
       cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
         ws.send({
-          tx: change.fullDocument?._id,
+          tx: change.fullDocument?.tx.h,
           bap_id: change.fullDocument?.MAP?.[0]?.bapID,
           algorithm_signing_component: change.fullDocument?.AIP?.[0]?.algorithm_signing_component,
           aip_address: change.fullDocument?.AIP?.[0]?.address,

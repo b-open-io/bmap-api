@@ -304,6 +304,7 @@ export const DMResponseSchema = t.Object({
   count: t.Number(),
   results: t.Array(
     t.Object({
+      timestamp: t.Number(),
       tx: t.Object({
         h: t.String(),
       }),
