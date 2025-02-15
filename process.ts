@@ -9,7 +9,9 @@ import type { TransformedTx } from './types.js';
 
 const { allProtocols, TransformTx } = bmapjs;
 
-export const processTransaction = async (rawTx: string): Promise<{ result: BmapTx, signer: BapIdentity | null } | null> => {
+export const processTransaction = async (
+  rawTx: string
+): Promise<{ result: BmapTx; signer: BapIdentity | null } | null> => {
   try {
     console.log('Starting transaction processing...');
     console.log('Raw transaction:', rawTx);
@@ -59,11 +61,10 @@ export const processTransaction = async (rawTx: string): Promise<{ result: BmapT
     console.log('Checking for AIP data...');
 
     if (t.AIP && Array.isArray(t.AIP) && t.AIP.length > 0) {
-      
       const aip = {
-       algorithm_signing_component: t.AIP[0].algorithm_signing_component,
-       address: t.AIP[0].address,
-       signature: t.AIP[0].signature,
+        algorithm_signing_component: t.AIP[0].algorithm_signing_component,
+        address: t.AIP[0].address,
+        signature: t.AIP[0].signature,
       } as AIP;
 
       console.log('Found AIP data:', aip);
@@ -97,11 +98,9 @@ export const processTransaction = async (rawTx: string): Promise<{ result: BmapT
 
     // Add timestamp for unconfirmed transactions
     if (!unnormalizedTx.blk?.t || unnormalizedTx.blk?.t === 0) {
-      console.log("no block time, setting timestamp to now")
+      console.log('no block time, setting timestamp to now');
       unnormalizedTx.timestamp = Math.floor(Date.now() / 1000);
     }
-
-
 
     // Save to collection based on MAP.type
     const dbo = await getDbo();
@@ -110,12 +109,12 @@ export const processTransaction = async (rawTx: string): Promise<{ result: BmapT
       console.log('Saving to collection based on MAP.type:', mapType);
       await dbo
         .collection(mapType)
-        .updateOne({ '_id': unnormalizedTx.tx.h }, { $set: unnormalizedTx }, { upsert: true });
+        .updateOne({ _id: unnormalizedTx.tx.h }, { $set: unnormalizedTx }, { upsert: true });
       console.log(chalk.green(unnormalizedTx.tx.h));
     }
 
     console.log('Transaction processing completed successfully');
-    return { 
+    return {
       result: unnormalizedTx,
       signer: bapId,
     };

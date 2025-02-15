@@ -18,10 +18,13 @@ export const unNormalize = (tx: BmapTx): BmapTx => {
   if (tx.B) {
     tx.B = tx.B.map((b: BmapTx['B'][number]) => {
       if (b.content) {
-        const data = Object.assign({}, b.encoding === 'binary' ? { data: b.content } : { utf8: b.content });
+        const data = Object.assign(
+          {},
+          b.encoding === 'binary' ? { data: b.content } : { utf8: b.content }
+        );
 
         b.Data = data;
-        b.content = undefined;       
+        b.content = undefined;
         return b;
       }
     });

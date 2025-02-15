@@ -73,8 +73,6 @@ const bobFromRawTx = async (rawtx: string) => {
   }
 };
 
-
-
 type JBJsonTxResp = {
   id: string;
   transaction: string;
@@ -87,8 +85,7 @@ type JBJsonTxResp = {
   outputs: string[];
   input_types: string[];
   output_types: string[];
-  
-}
+};
 
 const jsonFromTxid = async (txid: string): Promise<JBJsonTxResp> => {
   try {
@@ -100,7 +97,7 @@ const jsonFromTxid = async (txid: string): Promise<JBJsonTxResp> => {
     if (!res.ok) {
       throw new Error(`WhatsonChain request failed: ${res.status} ${res.statusText}`);
     }
-    const json = await res.json() as JBJsonTxResp;
+    const json = (await res.json()) as JBJsonTxResp;
     return json;
   } catch (error) {
     console.error('Error fetching from WhatsonChain:', error);
@@ -181,7 +178,9 @@ const handleTxRequest = async (txid: string, format?: string) => {
       const collections = ['message', 'like', 'post', 'repost'];
       let dbTx: BmapTx | null = null;
       for (const collection of collections) {
-        const result = await db.collection<{ _id: string }>(collection).findOne(({ _id: txid }) as Filter<{ _id: string }>);
+        const result = await db
+          .collection<{ _id: string }>(collection)
+          .findOne({ _id: txid } as Filter<{ _id: string }>);
         if (result && 'tx' in result && 'out' in result) {
           dbTx = result as unknown as BmapTx;
           console.log('Found tx in MongoDB collection:', collection);
@@ -193,7 +192,7 @@ const handleTxRequest = async (txid: string, format?: string) => {
       } else {
         console.log('Processing new transaction:', txid);
         const rawTx = await rawTxFromTxid(txid);
-        const { result, signer } = await processTransaction(rawTx)
+        const { result, signer } = await processTransaction(rawTx);
         decoded = result;
 
         const txDetails = await jsonFromTxid(txid);
@@ -211,7 +210,11 @@ const handleTxRequest = async (txid: string, format?: string) => {
             const collection = decoded.MAP?.[0]?.type || 'message';
             await db
               .collection<{ _id: string }>(collection)
-              .updateOne(({ _id: txid }) as Filter<{ _id: string }>, { $set: decoded }, { upsert: true });
+              .updateOne(
+                { _id: txid } as Filter<{ _id: string }>,
+                { $set: decoded },
+                { upsert: true }
+              );
             console.log('Saved tx to MongoDB collection:', collection);
           } catch (error) {
             console.error('Error saving to MongoDB:', error);
@@ -275,13 +278,16 @@ const handleTxRequest = async (txid: string, format?: string) => {
     if (errMsg.includes('Empty response from JB') || errMsg.includes('Failed to fetch raw tx:')) {
       statusCode = 404;
     }
-    return new Response(JSON.stringify({ 
-      error: errMsg,
-      stack: error instanceof Error ? error.stack : undefined
-    }), {
-      status: statusCode,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        error: errMsg,
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
+      {
+        status: statusCode,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 };
 
@@ -379,21 +385,21 @@ const app = new Elysia()
     console.log({ error });
     const accept = request.headers.get('accept') || '';
     const wantsJSON = accept.includes('application/json');
-    
+
     if (error instanceof NotFoundError) {
       console.log(chalk.yellow(`404: ${request.method} ${request.url}`));
       if (wantsJSON) {
         return new Response(JSON.stringify({ error: `Not Found: ${request.url}` }), {
           status: 404,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
         });
       }
       return new Response(`<div class="text-yellow-500">Not Found: ${request.url}</div>`, {
         status: 404,
-        headers: { 'Content-Type': 'text/html' }
+        headers: { 'Content-Type': 'text/html' },
       });
     }
-    
+
     if ('code' in error && error.code === 'VALIDATION') {
       console.log('Validation error details:', error);
       console.log('Request URL:', request.url);
@@ -402,45 +408,45 @@ const app = new Elysia()
       if (wantsJSON) {
         return new Response(JSON.stringify({ error: errorMessage }), {
           status: 400,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
         });
       }
       return new Response(`<div class="text-orange-500">Validation Error: ${errorMessage}</div>`, {
         status: 400,
-        headers: { 'Content-Type': 'text/html' }
+        headers: { 'Content-Type': 'text/html' },
       });
     }
-    
+
     if ('code' in error && error.code === 'PARSE') {
       const errorMessage = error instanceof Error ? error.message : 'Parse Error';
       if (wantsJSON) {
         return new Response(JSON.stringify({ error: errorMessage }), {
           status: 400,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
         });
       }
       return new Response(`<div class="text-red-500">Parse Error: ${errorMessage}</div>`, {
         status: 400,
-        headers: { 'Content-Type': 'text/html' }
+        headers: { 'Content-Type': 'text/html' },
       });
     }
-    
+
     console.error(chalk.red(`Error: ${request.method} ${request.url}`), error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     const debug = process.env.DEBUG === 'true';
     const responsePayload = debug
       ? { error: errorMessage, stack: error instanceof Error ? error.stack : undefined }
       : { error: errorMessage };
-    
+
     if (wantsJSON) {
       return new Response(JSON.stringify(responsePayload), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
       });
     }
     return new Response(`<div class="text-red-500">Server error: ${errorMessage}</div>`, {
       status: 500,
-      headers: { 'Content-Type': 'text/html' }
+      headers: { 'Content-Type': 'text/html' },
     });
   })
   .use(socialRoutes)
@@ -811,7 +817,7 @@ const app = new Elysia()
       console.log('Received ingest request with rawTx length:', rawTx.length);
 
       try {
-        const tx = await processTransaction(rawTx) as BmapTx | null;
+        const tx = (await processTransaction(rawTx)) as BmapTx | null;
         if (!tx) throw new Error('No result returned');
 
         console.log('Transaction processed successfully:', tx.tx?.h);
@@ -871,17 +877,20 @@ const app = new Elysia()
           examples: ['1234abcd'],
         }),
         format: t.Optional(
-          t.Union([
-            t.Literal('bob'),
-            t.Literal('bmap'),
-            t.Literal('file'),
-            t.Literal('raw'),
-            t.Literal('signer'),
-            t.Literal('json')
-          ], {
-            description: 'Response format',
-            examples: ['bob', 'bmap', 'file', 'signer', 'raw', 'json'],
-          })
+          t.Union(
+            [
+              t.Literal('bob'),
+              t.Literal('bmap'),
+              t.Literal('file'),
+              t.Literal('raw'),
+              t.Literal('signer'),
+              t.Literal('json'),
+            ],
+            {
+              description: 'Response format',
+              examples: ['bob', 'bmap', 'file', 'signer', 'raw', 'json'],
+            }
+          )
         ),
       }),
       response: {
@@ -896,10 +905,12 @@ const app = new Elysia()
             MAP: t.Optional(t.Array(t.Object({}))),
             AIP: t.Optional(t.Array(t.Object({}))),
             B: t.Optional(t.Array(t.Object({}))),
-            blk: t.Optional(t.Object({
-              i: t.Number(),
-              t: t.Number(),
-            })),
+            blk: t.Optional(
+              t.Object({
+                i: t.Number(),
+                t: t.Number(),
+              })
+            ),
             timestamp: t.Optional(t.Number()),
             lock: t.Optional(t.Number()),
           }),
@@ -921,11 +932,13 @@ const app = new Elysia()
             idKey: t.String(),
             rootAddress: t.String(),
             currentAddress: t.String(),
-            addresses: t.Array(t.Object({
-              address: t.String(),
-              txId: t.String(),
-              block: t.Optional(t.Number()),
-            })),
+            addresses: t.Array(
+              t.Object({
+                address: t.String(),
+                txId: t.String(),
+                block: t.Optional(t.Number()),
+              })
+            ),
             identity: t.Union([t.String(), t.Object({})]),
             identityTxId: t.String(),
             block: t.Number(),
