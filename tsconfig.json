@@ -15,18 +15,6 @@
     "jsxFactory": "React.createElement",
     "jsxFragmentFactory": "React.Fragment"
   },
-  "include": [
-    "./*.ts",
-    "./src/**/*.ts",
-    "./src/**/*.tsx",
-    "./social/**/*.ts",
-    "./queries/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "**/node_modules/*",
-    "dist",
-    "build",
-    "**/dist/**"
-  ]
+  "include": ["./*.ts", "./src/**/*.ts", "./src/**/*.tsx", "./social/**/*.ts", "./queries/**/*.ts"],
+  "exclude": ["node_modules", "**/node_modules/*", "dist", "build", "**/dist/**"]
 }
