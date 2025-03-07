@@ -447,7 +447,7 @@ export const socialRoutes = new Elysia()
       const { bapId, targetBapId } = ws.data.params;
       const identity = await fetchBapIdentityData(bapId);
       if (!identity?.currentAddress) {
-        throw new Error('Invalid BAP identity');
+        throw new Error(`Invalid BAP identity data for bapId: ${bapId}`);
       }
       const bapAddress = identity.currentAddress;
       const targetIdentity = await fetchBapIdentityData(targetBapId);
@@ -475,7 +475,10 @@ export const socialRoutes = new Elysia()
       const { bapId } = ws.data.params;
       const identity = await fetchBapIdentityData(bapId);
       if (!identity?.currentAddress) {
-        throw new Error('Invalid BAP identity');
+        ws.close(4403, 'Invalid BAP identity');
+        console.error('Invalid BAP identity:', identity);
+        return;
+        // throw new Error('Invalid BAP identity');
       }
       const bapAddress = identity.currentAddress;
 

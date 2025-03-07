@@ -273,7 +273,7 @@ export const messageListenEndpointDetail: OpenAPIV3.OperationObject = {
       description: 'WebSocket connection established',
     },
     '400': {
-      description: 'Invalid BAP identity',
+      description: 'Invalid BAP ID',
       content: {
         'application/json': {
           schema: {

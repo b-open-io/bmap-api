@@ -35,7 +35,7 @@ export async function getDirectMessages({
   // Get current address for BAP ID
   const identity = await fetchBapIdentityData(bapId);
   if (!identity?.currentAddress) {
-    throw new Error('Invalid BAP identity');
+    throw new Error('Invalid BAP identity data');
   }
 
   // Add this block to fetch target identity

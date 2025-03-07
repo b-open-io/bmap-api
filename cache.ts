@@ -56,8 +56,19 @@ export type CacheValue =
   | { type: 'identities'; value: BapIdentity[] }
   | { type: 'friends'; value: { friends: Friend[]; incoming: string[]; outgoing: string[] } };
 
-export async function saveToRedis<T extends CacheValue>(key: string, value: T): Promise<void> {
-  await client.set(key, JSON.stringify(value));
+export async function saveToRedis<T extends CacheValue>(
+  key: string,
+  value: T,
+  ttl?: number
+): Promise<void> {
+  const options: { EX?: number } = {};
+  if (ttl) {
+    options.EX = ttl;
+  } else {
+    // Default TTL of 1 hour for all cache entries
+    options.EX = 3600;
+  }
+  await client.set(key, JSON.stringify(value), options);
 }
 
 export async function readFromRedis<T extends CacheValue | CacheError>(

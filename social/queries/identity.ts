@@ -31,6 +31,10 @@ export async function fetchBapIdentityData(bapId: string): Promise<BapIdentity> 
     body: JSON.stringify({ idKey: bapId }),
   });
 
+  if (resp.status === 404) {
+    return null;
+  }
+
   if (!resp.ok) {
     const text = await resp.text();
     throw new Error(`Failed to fetch identity data. Status: ${resp.status}, Body: ${text}`);
