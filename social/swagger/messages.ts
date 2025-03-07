@@ -1,5 +1,46 @@
+import type { BmapTx } from 'bmapjs';
 import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
+import type { BapIdentity } from '../../bap.js';
+
+export interface Message {
+  tx: {
+    h: string;
+  };
+  blk: {
+    i: number;
+    t: number;
+  };
+  MAP: {
+    app: string;
+    type: string;
+    paymail?: string;
+    context?: string;
+    channel?: string;
+    bapID?: string;
+  }[];
+  B: {
+    encoding: string;
+    Data: {
+      utf8: string;
+      data?: string;
+    };
+  }[];
+  AIP?: {
+    algorithm: string;
+    address: string;
+    algorithm_signing_component: string;
+  }[];
+}
+
+export interface ChannelMessage {
+  channel: string;
+  page: number;
+  limit: number;
+  count: number;
+  results: Message[];
+  signers: BapIdentity[];
+}
 
 export const MessageQuery = t.Object({
   page: t.Optional(t.String()),
@@ -24,8 +65,10 @@ export const ChannelMessageSchema = t.Object({
         t.Object({
           app: t.String(),
           type: t.String(),
-          channel: t.String(),
-          paymail: t.String(),
+          paymail: t.Optional(t.String()),
+          context: t.Optional(t.String()),
+          channel: t.Optional(t.String()),
+          bapID: t.Optional(t.String()),
         })
       ),
       B: t.Array(
@@ -40,6 +83,7 @@ export const ChannelMessageSchema = t.Object({
       AIP: t.Optional(
         t.Array(
           t.Object({
+            algorithm: t.String(),
             address: t.Optional(t.String()),
             algorithm_signing_component: t.Optional(t.String()),
           })
@@ -192,6 +236,184 @@ export const channelMessagesEndpointDetail: OpenAPIV3.OperationObject = {
               results: { type: 'array' as const, items: {} },
               signers: { type: 'array' as const, items: {} },
             },
+          },
+        },
+      },
+    },
+  },
+};
+export const MessageListenParams = t.Object({
+  params: t.Object({
+    bapId: t.String(),
+    targetBapId: t.Optional(t.String()),
+  }),
+});
+
+export const messageListenEndpointDetail: OpenAPIV3.OperationObject = {
+  tags: ['social'],
+  description: 'Listen to real-time messages for a BAP ID',
+  parameters: [
+    {
+      name: 'bapId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'BAP Identity Key',
+    },
+    {
+      name: 'targetBapId',
+      in: 'path',
+      required: false,
+      schema: { type: 'string' },
+      description: 'Optional target BAP Identity Key for direct messages',
+    },
+  ],
+  responses: {
+    '101': {
+      description: 'WebSocket connection established',
+    },
+    '400': {
+      description: 'Invalid BAP ID',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+export interface DMResponse {
+  bapID: string;
+  page: number;
+  limit: number;
+  count: number;
+  results: BmapTx[];
+  signers: BapIdentity[];
+}
+
+export const DMResponseSchema = t.Object({
+  bapID: t.String(),
+  page: t.Number(),
+  limit: t.Number(),
+  count: t.Number(),
+  results: t.Array(
+    t.Object({
+      timestamp: t.Number(),
+      tx: t.Object({
+        h: t.String(),
+      }),
+      blk: t.Object({
+        i: t.Number(),
+        t: t.Number(),
+      }),
+      MAP: t.Array(
+        t.Object({
+          app: t.String(),
+          type: t.String(),
+          bapID: t.String(),
+          encrypted: t.Optional(t.String()),
+          context: t.Literal('bapID'),
+        })
+      ),
+      B: t.Array(
+        t.Object({
+          Data: t.Object({
+            utf8: t.String(),
+            data: t.Optional(t.String()),
+          }),
+          encoding: t.String(),
+        })
+      ),
+      AIP: t.Optional(
+        t.Array(
+          t.Object({
+            algorithm: t.String(),
+            address: t.Optional(t.String()),
+            algorithm_signing_component: t.Optional(t.String()),
+          })
+        )
+      ),
+    })
+  ),
+  signers: t.Array(
+    t.Object({
+      idKey: t.String(),
+      rootAddress: t.String(),
+      currentAddress: t.String(),
+      addresses: t.Array(
+        t.Object({
+          address: t.String(),
+          txId: t.String(),
+          block: t.Optional(t.Number()),
+        })
+      ),
+      identity: t.String(),
+      identityTxId: t.String(),
+      block: t.Number(),
+      timestamp: t.Number(),
+      valid: t.Boolean(),
+    })
+  ),
+});
+
+export const directMessagesEndpointDetail: OpenAPIV3.OperationObject = {
+  tags: ['social'],
+  description: 'Get encrypted direct messages for a BAP ID',
+  parameters: [
+    {
+      name: 'bapId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Recipient BAP Identity Key',
+    },
+  ],
+  responses: {
+    '200': {
+      description: 'Direct messages for BAP ID',
+      content: {
+        'application/json': {
+          schema: {
+            $ref: '#/components/schemas/DMResponse',
+          },
+        },
+      },
+    },
+  },
+};
+
+export const directMessagesWithTargetEndpointDetail: OpenAPIV3.OperationObject = {
+  tags: ['social'],
+  description: 'Get encrypted direct messages between two BAP IDs',
+  parameters: [
+    {
+      name: 'bapId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Recipient BAP Identity Key',
+    },
+    {
+      name: 'targetBapId',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Target BAP Identity Key',
+    },
+  ],
+  responses: {
+    '200': {
+      description: 'Direct messages between BAP IDs',
+      content: {
+        'application/json': {
+          schema: {
+            $ref: '#/components/schemas/DMResponse',
           },
         },
       },

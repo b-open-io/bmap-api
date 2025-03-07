@@ -6,7 +6,7 @@ import type { Static } from '@sinclair/typebox';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
 import { Elysia, NotFoundError, t } from 'elysia';
-import type { ChangeStreamDocument, Document, Sort, SortDirection } from 'mongodb';
+import type { ChangeStreamDocument, Document, Filter, Sort, SortDirection } from 'mongodb';
 
 import type { BmapTx, BobTx } from 'bmapjs';
 import bmapjs from 'bmapjs';
@@ -31,11 +31,12 @@ import { Timeframe } from './types.js';
 
 import type { ChangeStream } from 'mongodb';
 import { bitcoinSchemaCollections, htmxRoutes } from './htmx.js';
-import { socialRoutes } from './social.js';
+import { socialRoutes } from './social/routes.js';
+import { IdentityResponseSchema } from './social/swagger/identity.js';
 
 dotenv.config();
 
-const { allProtocols, TransformTx } = bmapjs;
+// const { allProtocols, TransformTx } = bmapjs;
 const __filename = fileURLToPath(import.meta.url);
 
 // Define request types
@@ -72,15 +73,32 @@ const bobFromRawTx = async (rawtx: string) => {
   }
 };
 
-const jsonFromTxid = async (txid: string) => {
+type JBJsonTxResp = {
+  id: string;
+  transaction: string;
+  block_hash: string;
+  block_height: number;
+  block_time: number;
+  block_index: number;
+  addresses: string[];
+  inputs: string[];
+  outputs: string[];
+  input_types: string[];
+  output_types: string[];
+};
+
+const jsonFromTxid = async (txid: string): Promise<JBJsonTxResp> => {
   try {
-    const url = `https://api.whatsonchain.com/v1/bsv/main/tx/${txid}`;
-    console.log('Fetching from WoC:', url);
+    // const url = `https://api.whatsonchain.com/v1/bsv/main/tx/${txid}`;
+    const url = `https://junglebus.gorillapool.io/v1/transaction/get/${txid}`;
+    console.log('Fetching from JB:', url);
+
     const res = await fetch(url);
     if (!res.ok) {
       throw new Error(`WhatsonChain request failed: ${res.status} ${res.statusText}`);
     }
-    return await res.json();
+    const json = (await res.json()) as JBJsonTxResp;
+    return json;
   } catch (error) {
     console.error('Error fetching from WhatsonChain:', error);
     throw new Error(
@@ -91,19 +109,20 @@ const jsonFromTxid = async (txid: string) => {
 
 const rawTxFromTxid = async (txid: string) => {
   try {
-    const url = `https://api.whatsonchain.com/v1/bsv/main/tx/${txid}/hex`;
-    console.log('Fetching raw tx from WoC:', url);
+    // const url = `https://api.whatsonchain.com/v1/bsv/main/tx/${txid}/hex`;
+    const url = `https://junglebus.gorillapool.io/v1/transaction/get/${txid}/hex`;
+    console.log('Fetching raw tx from JB:', url);
     const res = await fetch(url);
     if (!res.ok) {
-      throw new Error(`WhatsonChain request failed: ${res.status} ${res.statusText}`);
+      throw new Error(`JB request failed: ${res.status} ${res.statusText}`);
     }
     const text = await res.text();
     if (!text) {
-      throw new Error('Empty response from WhatsonChain');
+      throw new Error('Empty response from JB');
     }
     return text;
   } catch (error) {
-    console.error('Error fetching raw tx from WhatsonChain:', error);
+    console.error('Error fetching raw tx from JB:', error);
     throw new Error(
       `Failed to fetch raw tx: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -126,6 +145,148 @@ const bobFromTxid = async (txid: string) => {
     console.error('Error in bobFromTxid:', error);
     throw new Error(
       `Failed to process transaction: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+};
+
+/* Inserted helper function for handling transaction requests */
+const handleTxRequest = async (txid: string, format?: string) => {
+  if (!txid) throw new Error('Missing txid');
+  try {
+    if (format === 'raw') return rawTxFromTxid(txid);
+    if (format === 'json') return jsonFromTxid(txid);
+    if (format === 'bob') return bobFromTxid(txid);
+    if (format === 'signer') {
+      const rawTx = await rawTxFromTxid(txid);
+      const { signer } = await processTransaction(rawTx);
+      if (!signer) {
+        throw new Error('No signer found for transaction');
+      }
+      return signer;
+    }
+
+    const cacheKey = `tx:${txid}`;
+    const cached = await readFromRedis<CacheValue>(cacheKey);
+    let decoded: BmapTx;
+
+    if (cached?.type === 'tx' && cached.value) {
+      console.log('Cache hit for tx:', txid);
+      decoded = cached.value;
+    } else {
+      console.log('Cache miss for tx:', txid);
+      const db = await getDbo();
+      const collections = ['message', 'like', 'post', 'repost'];
+      let dbTx: BmapTx | null = null;
+      for (const collection of collections) {
+        const result = await db
+          .collection<{ _id: string }>(collection)
+          .findOne({ _id: txid } as Filter<{ _id: string }>);
+        if (result && 'tx' in result && 'out' in result) {
+          dbTx = result as unknown as BmapTx;
+          console.log('Found tx in MongoDB collection:', collection);
+          break;
+        }
+      }
+      if (dbTx) {
+        decoded = dbTx;
+      } else {
+        console.log('Processing new transaction:', txid);
+        const rawTx = await rawTxFromTxid(txid);
+        const { result, signer } = await processTransaction(rawTx);
+        decoded = result;
+
+        const txDetails = await jsonFromTxid(txid);
+        if (txDetails.block_height && txDetails.block_time) {
+          decoded.blk = {
+            i: txDetails.block_height,
+            t: txDetails.block_time,
+          };
+        } else if (txDetails.block_time) {
+          decoded.timestamp = txDetails.block_time;
+        }
+        console.log('decoded', decoded);
+        if (decoded.B || decoded.MAP) {
+          try {
+            const collection = decoded.MAP?.[0]?.type || 'message';
+            await db
+              .collection<{ _id: string }>(collection)
+              .updateOne(
+                { _id: txid } as Filter<{ _id: string }>,
+                { $set: decoded },
+                { upsert: true }
+              );
+            console.log('Saved tx to MongoDB collection:', collection);
+          } catch (error) {
+            console.error('Error saving to MongoDB:', error);
+          }
+        }
+        if (signer) {
+          await saveToRedis<CacheValue>(`signer-${signer.idKey}`, {
+            type: 'signer',
+            value: signer,
+          });
+        }
+      }
+
+      await saveToRedis<CacheValue>(cacheKey, {
+        type: 'tx',
+        value: decoded,
+      });
+    }
+    if (format === 'file') {
+      let vout = 0;
+      if (txid.includes('_')) {
+        const parts = txid.split('_');
+        vout = Number.parseInt(parts[1], 10);
+      }
+      let dataBuf: Buffer | undefined;
+      let contentType: string | undefined;
+      if (decoded.ORD?.[vout]) {
+        dataBuf = Buffer.from(decoded.ORD[vout]?.data, 'base64');
+        contentType = decoded.ORD[vout].contentType;
+      } else if (decoded.B?.[vout]) {
+        dataBuf = Buffer.from(decoded.B[vout]?.content, 'base64');
+        contentType = decoded.B[vout]['content-type'];
+      }
+      if (dataBuf && contentType) {
+        return new Response(dataBuf, {
+          headers: {
+            'Content-Type': contentType,
+            'Content-Length': String(dataBuf.length),
+          },
+        });
+      }
+      throw new Error('No data found in transaction outputs');
+    }
+    switch (format) {
+      case 'bmap':
+        return decoded;
+      default:
+        if (format && decoded[format]) {
+          return decoded[format];
+        }
+        return format?.length
+          ? `Key ${format} not found in tx`
+          : new Response(`<pre>${JSON.stringify(decoded, null, 2)}</pre>`, {
+              headers: { 'Content-Type': 'text/html' },
+            });
+    }
+  } catch (error: unknown) {
+    console.error('Error processing transaction:', error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    let statusCode = 500;
+    if (errMsg.includes('Empty response from JB') || errMsg.includes('Failed to fetch raw tx:')) {
+      statusCode = 404;
+    }
+    return new Response(
+      JSON.stringify({
+        error: errMsg,
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
+      {
+        status: statusCode,
+        headers: { 'Content-Type': 'application/json' },
+      }
     );
   }
 };
@@ -222,39 +383,67 @@ const app = new Elysia()
   })
   .onError(({ error, request }) => {
     console.log({ error });
+    const accept = request.headers.get('accept') || '';
+    const wantsJSON = accept.includes('application/json');
 
     if (error instanceof NotFoundError) {
       console.log(chalk.yellow(`404: ${request.method} ${request.url}`));
+      if (wantsJSON) {
+        return new Response(JSON.stringify({ error: `Not Found: ${request.url}` }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       return new Response(`<div class="text-yellow-500">Not Found: ${request.url}</div>`, {
         status: 404,
         headers: { 'Content-Type': 'text/html' },
       });
     }
 
-    // Handle validation errors
     if ('code' in error && error.code === 'VALIDATION') {
       console.log('Validation error details:', error);
       console.log('Request URL:', request.url);
       console.log('Request method:', request.method);
-      const errorMessage = 'message' in error ? error.message : 'Validation Error';
+      const errorMessage = error instanceof Error ? error.message : 'Validation Error';
+      if (wantsJSON) {
+        return new Response(JSON.stringify({ error: errorMessage }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       return new Response(`<div class="text-orange-500">Validation Error: ${errorMessage}</div>`, {
         status: 400,
         headers: { 'Content-Type': 'text/html' },
       });
     }
 
-    // Handle parse errors
     if ('code' in error && error.code === 'PARSE') {
-      const errorMessage = 'message' in error ? error.message : 'Parse Error';
+      const errorMessage = error instanceof Error ? error.message : 'Parse Error';
+      if (wantsJSON) {
+        return new Response(JSON.stringify({ error: errorMessage }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       return new Response(`<div class="text-red-500">Parse Error: ${errorMessage}</div>`, {
         status: 400,
         headers: { 'Content-Type': 'text/html' },
       });
     }
 
-    // Other errors
     console.error(chalk.red(`Error: ${request.method} ${request.url}`), error);
-    const errorMessage = 'message' in error ? error.message : 'Internal Server Error';
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    const debug = process.env.DEBUG === 'true';
+    const responsePayload = debug
+      ? { error: errorMessage, stack: error instanceof Error ? error.stack : undefined }
+      : { error: errorMessage };
+
+    if (wantsJSON) {
+      return new Response(JSON.stringify(responsePayload), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     return new Response(`<div class="text-red-500">Server error: ${errorMessage}</div>`, {
       status: 500,
       headers: { 'Content-Type': 'text/html' },
@@ -628,7 +817,7 @@ const app = new Elysia()
       console.log('Received ingest request with rawTx length:', rawTx.length);
 
       try {
-        const tx = await processTransaction({ transaction: rawTx });
+        const tx = (await processTransaction(rawTx)) as BmapTx | null;
         if (!tx) throw new Error('No result returned');
 
         console.log('Transaction processed successfully:', tx.tx?.h);
@@ -679,128 +868,7 @@ const app = new Elysia()
     '/tx/:tx/:format?',
     async ({ params }) => {
       const { tx: txid, format } = params;
-      if (!txid) throw new Error('Missing txid');
-
-      try {
-        // Special formats that don't need processing
-        if (format === 'raw') return rawTxFromTxid(txid);
-        if (format === 'json') return jsonFromTxid(txid);
-
-        // Check Redis cache first
-        const cacheKey = `tx:${txid}`;
-        const cached = await readFromRedis<CacheValue>(cacheKey);
-        let decoded: BmapTx;
-
-        if (cached?.type === 'tx' && cached.value) {
-          console.log('Cache hit for tx:', txid);
-          decoded = cached.value;
-        } else {
-          console.log('Cache miss for tx:', txid);
-
-          // Check MongoDB
-          const db = await getDbo();
-          const collections = ['message', 'like', 'post', 'repost'];
-          let dbTx: BmapTx | null = null;
-
-          for (const collection of collections) {
-            const result = await db.collection(collection).findOne({ 'tx.h': txid });
-            if (result && 'tx' in result && 'out' in result) {
-              dbTx = result as unknown as BmapTx;
-              console.log('Found tx in MongoDB collection:', collection);
-              break;
-            }
-          }
-
-          if (dbTx) {
-            decoded = dbTx;
-          } else {
-            // Process the transaction if not found
-            console.log('Processing new transaction:', txid);
-            const bob = await bobFromTxid(txid);
-            decoded = await TransformTx(
-              bob as BobTx,
-              allProtocols.map((p) => p.name)
-            );
-
-            // Get block info from WhatsonChain
-            const txDetails = await jsonFromTxid(txid);
-            if (txDetails.blockheight && txDetails.time) {
-              decoded.blk = {
-                i: txDetails.blockheight,
-                t: txDetails.time,
-              };
-            } else if (txDetails.time) {
-              decoded.timestamp = txDetails.time;
-            }
-
-            // If B or MAP protocols are found, save to MongoDB
-            if (decoded.B || decoded.MAP) {
-              try {
-                const collection = decoded.MAP?.[0]?.type || 'message';
-                await db
-                  .collection(collection)
-                  .updateOne({ 'tx.h': txid }, { $set: decoded }, { upsert: true });
-                console.log('Saved tx to MongoDB collection:', collection);
-              } catch (error) {
-                console.error('Error saving to MongoDB:', error);
-              }
-            }
-          }
-
-          // Cache the result
-          await saveToRedis<CacheValue>(cacheKey, {
-            type: 'tx',
-            value: decoded,
-          });
-        }
-
-        // Handle file format after we have the decoded tx
-        if (format === 'file') {
-          let vout = 0;
-          if (txid.includes('_')) {
-            const parts = txid.split('_');
-            vout = Number.parseInt(parts[1], 10);
-          }
-
-          let dataBuf: Buffer | undefined;
-          let contentType: string | undefined;
-          if (decoded.ORD?.[vout]) {
-            dataBuf = Buffer.from(decoded.ORD[vout]?.data, 'base64');
-            contentType = decoded.ORD[vout].contentType;
-          } else if (decoded.B?.[vout]) {
-            dataBuf = Buffer.from(decoded.B[vout]?.content, 'base64');
-            contentType = decoded.B[vout]['content-type'];
-          }
-
-          if (dataBuf && contentType) {
-            return new Response(dataBuf, {
-              headers: {
-                'Content-Type': contentType,
-                'Content-Length': String(dataBuf.length),
-              },
-            });
-          }
-          throw new Error('No data found in transaction outputs');
-        }
-
-        // Return the appropriate format
-        switch (format) {
-          case 'bob':
-            return bobFromTxid(txid);
-          case 'bmap':
-            return decoded;
-          default:
-            if (format && decoded[format]) {
-              return decoded[format];
-            }
-            return format?.length
-              ? `Key ${format} not found in tx`
-              : `<pre>${JSON.stringify(decoded, null, 2)}</pre>`;
-        }
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`Failed to process transaction: ${message}`);
-      }
+      return handleTxRequest(txid, format);
     },
     {
       params: t.Object({
@@ -809,10 +877,20 @@ const app = new Elysia()
           examples: ['1234abcd'],
         }),
         format: t.Optional(
-          t.Union([t.Literal('bob'), t.Literal('bmap'), t.Literal('file')], {
-            description: 'Response format',
-            examples: ['bob', 'bmap', 'file'],
-          })
+          t.Union(
+            [
+              t.Literal('bob'),
+              t.Literal('bmap'),
+              t.Literal('file'),
+              t.Literal('raw'),
+              t.Literal('signer'),
+              t.Literal('json'),
+            ],
+            {
+              description: 'Response format',
+              examples: ['bob', 'bmap', 'file', 'signer', 'raw', 'json'],
+            }
+          )
         ),
       }),
       response: {
@@ -822,13 +900,19 @@ const app = new Elysia()
             tx: t.Object({
               h: t.String(),
             }),
-            blk: t.Object({
-              i: t.Number(),
-              t: t.Number(),
-            }),
-            MAP: t.Array(t.Object({})),
-            AIP: t.Array(t.Object({})),
-            B: t.Array(t.Object({})),
+            in: t.Optional(t.Array(t.Object({}))),
+            out: t.Optional(t.Array(t.Object({}))),
+            MAP: t.Optional(t.Array(t.Object({}))),
+            AIP: t.Optional(t.Array(t.Object({}))),
+            B: t.Optional(t.Array(t.Object({}))),
+            blk: t.Optional(
+              t.Object({
+                i: t.Number(),
+                t: t.Number(),
+              })
+            ),
+            timestamp: t.Optional(t.Number()),
+            lock: t.Optional(t.Number()),
           }),
           // BOB format
           t.Object({
@@ -841,15 +925,32 @@ const app = new Elysia()
             out: t.Array(t.Object({})),
             parts: t.Array(t.Object({})),
           }),
-          // Protocol data or error message
-          t.Union([t.Array(t.Object({})), t.String()]),
+          // Raw response (hex string)
+          t.String(),
+          // BAP Identity response
+          t.Object({
+            idKey: t.String(),
+            rootAddress: t.String(),
+            currentAddress: t.String(),
+            addresses: t.Array(
+              t.Object({
+                address: t.String(),
+                txId: t.String(),
+                block: t.Optional(t.Number()),
+              })
+            ),
+            identity: t.Union([t.String(), t.Object({})]),
+            identityTxId: t.String(),
+            block: t.Number(),
+            timestamp: t.Number(),
+            valid: t.Boolean(),
+            paymail: t.Optional(t.String()),
+            displayName: t.Optional(t.String()),
+            icon: t.Optional(t.String()),
+          }),
+          // Response instance (for file downloads)
+          t.Any(),
         ]),
-        400: t.Object({
-          error: t.String(),
-        }),
-        404: t.Object({
-          error: t.String(),
-        }),
       },
       detail: {
         tags: ['transactions'],
@@ -902,13 +1003,8 @@ const app = new Elysia()
                       },
                     },
                     {
-                      type: 'array',
-                      description: 'Protocol-specific data (when format matches a protocol key)',
-                      items: { type: 'object' },
-                    },
-                    {
                       type: 'string',
-                      description: 'Error message',
+                      description: 'Raw transaction hex (when format=raw)',
                     },
                   ],
                 },
@@ -918,32 +1014,6 @@ const app = new Elysia()
                   type: 'string',
                   format: 'binary',
                   description: 'File content (when format=file)',
-                },
-              },
-            },
-          },
-          400: {
-            description: 'Invalid transaction ID or format',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    error: { type: 'string' },
-                  },
-                },
-              },
-            },
-          },
-          404: {
-            description: 'Transaction not found',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    error: { type: 'string' },
-                  },
                 },
               },
             },

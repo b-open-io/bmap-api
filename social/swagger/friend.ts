@@ -1,6 +1,26 @@
 import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
 
+export interface RelationshipState {
+  fromMe: boolean;
+  fromThem: boolean;
+  mePublicKey?: string;
+  themPublicKey?: string;
+  unfriended: boolean;
+}
+
+export interface FriendshipResponse {
+  friends: Friend[];
+  incoming: string[];
+  outgoing: string[];
+}
+
+export interface Friend {
+  bapID: string;
+  themPublicKey: string;
+  mePublicKey: string;
+}
+
 export const FriendResponseSchema = t.Object({
   friends: t.Array(
     t.Object({

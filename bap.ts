@@ -70,7 +70,7 @@ export const getBAPIdByAddress = async (
     console.log('identity data', { data });
     if (data && data.status === 'OK' && data.result) {
       try {
-        return data.result;
+        return data.result.identity;
       } catch (e) {
         console.log('Failed to parse BAP identity', e, data.result);
       }

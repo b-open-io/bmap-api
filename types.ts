@@ -9,10 +9,13 @@ export interface TransformedTx extends BmapTx {
     i: number;
     t: number;
   };
+  timestamp?: number;
   bapId?: BapIdentity;
   AIP?: {
+    data?: string[];
     algorithm_signing_component?: string;
     address?: string;
+    signature?: string;
   }[];
 }
 

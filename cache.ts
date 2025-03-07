@@ -4,16 +4,11 @@ import redis from 'redis';
 import type { BapIdentity } from './bap.js';
 import type { TimeSeriesData } from './chart.js';
 import { getCurrentBlockHeight } from './db.js';
-
-// Import interfaces from social.ts
-import type {
-  CacheListResponse,
-  ChannelInfo,
-  ChannelMessage,
-  DMResponse,
-  LikeInfo,
-  Reactions,
-} from './social.js';
+// we moved the social files to the social folder
+import type { ChannelInfo } from './social/swagger/channels.js';
+import type { Friend } from './social/swagger/friend.js';
+import type { LikeInfo, Reactions } from './social/swagger/likes.js';
+import type { ChannelMessage, DMResponse } from './social/swagger/messages.js';
 
 const client = redis.createClient({
   url: process.env.REDIS_PRIVATE_URL,
@@ -58,10 +53,22 @@ export type CacheValue =
   | { type: 'chart'; value: ChartCacheData }
   | { type: 'timeSeriesData'; value: TimeSeriesData }
   | { type: 'reactions'; value: Reactions }
-  | { type: 'identities'; value: CacheListResponse };
+  | { type: 'identities'; value: BapIdentity[] }
+  | { type: 'friends'; value: { friends: Friend[]; incoming: string[]; outgoing: string[] } };
 
-export async function saveToRedis<T extends CacheValue>(key: string, value: T): Promise<void> {
-  await client.set(key, JSON.stringify(value));
+export async function saveToRedis<T extends CacheValue>(
+  key: string,
+  value: T,
+  ttl?: number
+): Promise<void> {
+  const options: { EX?: number } = {};
+  if (ttl) {
+    options.EX = ttl;
+  } else {
+    // Default TTL of 1 hour for all cache entries
+    options.EX = 3600;
+  }
+  await client.set(key, JSON.stringify(value), options);
 }
 
 export async function readFromRedis<T extends CacheValue | CacheError>(
