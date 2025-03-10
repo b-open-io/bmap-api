@@ -9,4 +9,4 @@ if [ -n "$files" ]; then
 fi
 
 # Run TypeScript check
-bun run tsc || exit 1 
+bun run typecheck || exit 1 
