@@ -55,7 +55,11 @@ export async function fetchAllFriendsAndUnfriends(
           hasUnfriend
             ? dbo
                 .collection('unfriend')
-                .find({ 'MAP.type': 'unfriend', 'MAP.bapID': bapId, 'blk.i': { $gt: PROTOCOL_START_BLOCK } })
+                .find({
+                  'MAP.type': 'unfriend',
+                  'MAP.bapID': bapId,
+                  'blk.i': { $gt: PROTOCOL_START_BLOCK },
+                })
                 .toArray()
             : []
         ) as Promise<BmapTx[]>,
