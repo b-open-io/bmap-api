@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/bun": "^1.2.4",
+    "@types/bun": "^1.2.5",
     "@types/lodash": "^4.17.16",
     "@types/node-persist": "^3.1.8",
     "dotenv": "^16.4.7"

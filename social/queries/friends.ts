@@ -7,6 +7,8 @@ import { fetchBapIdentityData } from './identity.js';
 // Cache for BAP identities to reduce redundant lookups
 const bapCache = new Map<string, string>();
 
+const PROTOCOL_START_BLOCK = 887888;
+
 export async function fetchAllFriendsAndUnfriends(
   bapId: string
 ): Promise<{ allDocs: BmapTx[]; ownedAddresses: Set<string> }> {
@@ -29,7 +31,7 @@ export async function fetchAllFriendsAndUnfriends(
       // Get incoming friend requests
       dbo
         .collection('friend')
-        .find({ 'MAP.type': 'friend', 'MAP.bapID': bapId })
+        .find({ 'MAP.type': 'friend', 'MAP.bapID': bapId, 'blk.i': { $gt: PROTOCOL_START_BLOCK } })
         .toArray() as Promise<BmapTx[]>,
 
       // Get outgoing friend requests
@@ -41,6 +43,7 @@ export async function fetchAllFriendsAndUnfriends(
             { 'AIP.algorithm_signing_component': { $in: [...ownedAddresses] } },
             { 'AIP.address': { $in: [...ownedAddresses] } },
           ],
+          'blk.i': { $gt: PROTOCOL_START_BLOCK },
         })
         .toArray() as Promise<BmapTx[]>,
 
@@ -52,7 +55,7 @@ export async function fetchAllFriendsAndUnfriends(
           hasUnfriend
             ? dbo
                 .collection('unfriend')
-                .find({ 'MAP.type': 'unfriend', 'MAP.bapID': bapId })
+                .find({ 'MAP.type': 'unfriend', 'MAP.bapID': bapId, 'blk.i': { $gt: PROTOCOL_START_BLOCK } })
                 .toArray()
             : []
         ) as Promise<BmapTx[]>,
@@ -71,6 +74,7 @@ export async function fetchAllFriendsAndUnfriends(
                     { 'AIP.algorithm_signing_component': { $in: [...ownedAddresses] } },
                     { 'AIP.address': { $in: [...ownedAddresses] } },
                   ],
+                  'blk.i': { $gt: PROTOCOL_START_BLOCK },
                 })
                 .toArray()
             : []
