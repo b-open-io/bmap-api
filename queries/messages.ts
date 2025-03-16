@@ -2,10 +2,10 @@ import type { BmapTx } from 'bmapjs';
 import type { ChangeStream } from 'mongodb';
 import type { BapIdentity } from '../bap.js';
 import { getBAPIdByAddress } from '../bap.js';
+import { PROTOCOL_START_BLOCK } from '../constants.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
 import type { DMResponse } from '../social/swagger/messages.js';
-import { PROTOCOL_START_BLOCK } from '../constants.js';
 
 interface MessageQueryParams {
   bapId: string;
@@ -50,27 +50,27 @@ export async function getDirectMessages({
 
   const query = targetBapId
     ? {
-      $and: [
-        { 'MAP.type': 'message', 'blk.i': { $gt: PROTOCOL_START_BLOCK } },
-        {
-          $or: [
-            {
-              'MAP.bapID': targetBapId,
-              'AIP.algorithm_signing_component': identity.currentAddress,
-            },
-            {
-              'MAP.bapID': bapId,
-              'AIP.algorithm_signing_component': targetIdentity.currentAddress,
-            },
-          ],
-        },
-      ],
-    }
+        $and: [
+          { 'MAP.type': 'message', 'blk.i': { $gt: PROTOCOL_START_BLOCK } },
+          {
+            $or: [
+              {
+                'MAP.bapID': targetBapId,
+                'AIP.algorithm_signing_component': identity.currentAddress,
+              },
+              {
+                'MAP.bapID': bapId,
+                'AIP.algorithm_signing_component': targetIdentity.currentAddress,
+              },
+            ],
+          },
+        ],
+      }
     : {
-      'MAP.type': 'message',
-      'blk.i': { $gt: PROTOCOL_START_BLOCK },
-      'MAP.bapID': bapId,
-    };
+        'MAP.type': 'message',
+        'blk.i': { $gt: PROTOCOL_START_BLOCK },
+        'MAP.bapID': bapId,
+      };
 
   const [results, count] = await Promise.all([
     dbo.collection('message').find(query).sort({ 'blk.t': -1 }).skip(skip).limit(limit).toArray(),
@@ -148,7 +148,10 @@ export async function watchDirectMessages({
         $or: [
           {
             $and: [
-              { 'fullDocument.MAP.bapID': bapId, 'fullDocument.blk.i': { $gt: PROTOCOL_START_BLOCK } },
+              {
+                'fullDocument.MAP.bapID': bapId,
+                'fullDocument.blk.i': { $gt: PROTOCOL_START_BLOCK },
+              },
               {
                 $or: [
                   { 'fullDocument.AIP.algorithm_signing_component': targetAddress },

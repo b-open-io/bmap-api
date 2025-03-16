@@ -1,9 +1,14 @@
 import type { BmapTx } from 'bmapjs';
 import { getBAPIdByAddress } from '../../bap.js';
-import { getDbo } from '../../db.js';
-import type { Friend, FriendRequest, FriendshipResponse, RelationshipState } from '../swagger/friend.js';
-import { fetchBapIdentityData } from './identity.js';
 import { PROTOCOL_START_BLOCK } from '../../constants.js';
+import { getDbo } from '../../db.js';
+import type {
+  Friend,
+  FriendRequest,
+  FriendshipResponse,
+  RelationshipState,
+} from '../swagger/friend.js';
+import { fetchBapIdentityData } from './identity.js';
 
 // Cache for BAP identities to reduce redundant lookups
 const bapCache = new Map<string, string>();
