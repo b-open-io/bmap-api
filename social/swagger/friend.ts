@@ -7,12 +7,18 @@ export interface RelationshipState {
   mePublicKey?: string;
   themPublicKey?: string;
   unfriended: boolean;
+  txid?: string;
+}
+
+export interface FriendRequest {
+  bapID: string;
+  txid: string;
 }
 
 export interface FriendshipResponse {
   friends: Friend[];
-  incoming: string[];
-  outgoing: string[];
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
 }
 
 export interface Friend {
@@ -29,8 +35,18 @@ export const FriendResponseSchema = t.Object({
       themPublicKey: t.String(),
     })
   ),
-  incoming: t.Array(t.String()),
-  outgoing: t.Array(t.String()),
+  incoming: t.Array(
+    t.Object({
+      bapID: t.String(),
+      txid: t.String(),
+    })
+  ),
+  outgoing: t.Array(
+    t.Object({
+      bapID: t.String(),
+      txid: t.String(),
+    })
+  ),
 });
 
 export const friendEndpointDetail: OpenAPIV3.OperationObject = {

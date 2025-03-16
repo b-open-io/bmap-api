@@ -1,13 +1,12 @@
 import type { BmapTx } from 'bmapjs';
 import { getBAPIdByAddress } from '../../bap.js';
 import { getDbo } from '../../db.js';
-import type { Friend, FriendshipResponse, RelationshipState } from '../swagger/friend.js';
+import type { Friend, FriendRequest, FriendshipResponse, RelationshipState } from '../swagger/friend.js';
 import { fetchBapIdentityData } from './identity.js';
+import { PROTOCOL_START_BLOCK } from '../../constants.js';
 
 // Cache for BAP identities to reduce redundant lookups
 const bapCache = new Map<string, string>();
-
-const PROTOCOL_START_BLOCK = 887888;
 
 export async function fetchAllFriendsAndUnfriends(
   bapId: string
@@ -132,13 +131,19 @@ export async function processRelationships(
 
       const tgtBap = doc?.MAP?.[0]?.bapID;
       const publicKey = doc?.MAP?.[0]?.publicKey;
+      const txid = doc?.tx?.h;
 
-      if (!reqBap || !tgtBap) continue;
+      if (!reqBap || !tgtBap || !txid) continue;
 
       const otherBapId = reqBap === bapId ? tgtBap : reqBap;
 
       if (!relationships.has(otherBapId)) {
-        relationships.set(otherBapId, { fromMe: false, fromThem: false, unfriended: false });
+        relationships.set(otherBapId, {
+          fromMe: false,
+          fromThem: false,
+          unfriended: false,
+          txid,
+        });
       }
 
       const rel = relationships.get(otherBapId);
@@ -159,9 +164,11 @@ export async function processRelationships(
         if (isFromMe) {
           rel.fromMe = true;
           rel.mePublicKey = publicKey;
+          rel.txid = txid;
         } else {
           rel.fromThem = true;
           rel.themPublicKey = publicKey;
+          rel.txid = txid;
         }
       }
     }
@@ -173,8 +180,8 @@ export async function processRelationships(
   }
 
   const friends: Friend[] = [];
-  const incoming: string[] = [];
-  const outgoing: string[] = [];
+  const incoming: FriendRequest[] = [];
+  const outgoing: FriendRequest[] = [];
 
   // Process relationships
   for (const [other, rel] of relationships.entries()) {
@@ -187,9 +194,15 @@ export async function processRelationships(
         themPublicKey: rel.themPublicKey || '',
       });
     } else if (rel.fromMe && !rel.fromThem) {
-      outgoing.push(other);
+      outgoing.push({
+        bapID: other,
+        txid: rel.txid || '',
+      });
     } else if (!rel.fromMe && rel.fromThem) {
-      incoming.push(other);
+      incoming.push({
+        bapID: other,
+        txid: rel.txid || '',
+      });
     }
   }
 

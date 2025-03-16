@@ -1,0 +1,1 @@
+export const PROTOCOL_START_BLOCK = 887888;
