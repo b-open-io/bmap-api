@@ -91,9 +91,7 @@ export const processTransaction = async (
     const mapType = t.MAP?.[0]?.type;
     if (mapType) {
       console.log('Saving to collection based on MAP.type:', mapType);
-      await dbo
-        .collection(mapType)
-        .updateOne({ _id: t.tx.h }, { $set: t }, { upsert: true });
+      await dbo.collection(mapType).updateOne({ _id: t.tx.h }, { $set: t }, { upsert: true });
       console.log(chalk.green(t.tx.h));
     }
 

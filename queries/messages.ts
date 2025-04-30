@@ -57,16 +57,15 @@ export async function getDirectMessages({
     ? {
         $and: [
           { 'MAP.type': 'message', ...blockHeightCondition },
-          
-              {
-                'MAP.bapID': targetBapId,
-                'AIP.address': identity.currentAddress,
-              },
-              {
-                'MAP.bapID': bapId,
-                'AIP.address': targetIdentity.currentAddress,
-              },
-        
+
+          {
+            'MAP.bapID': targetBapId,
+            'AIP.address': identity.currentAddress,
+          },
+          {
+            'MAP.bapID': bapId,
+            'AIP.address': targetIdentity.currentAddress,
+          },
         ],
       }
     : {
@@ -85,7 +84,6 @@ export async function getDirectMessages({
   for (const msg of results) {
     if (!msg.AIP) continue;
     for (const aip of msg.AIP) {
-
       if (aip.address) {
         signerAddresses.add(aip.address);
       }
@@ -159,7 +157,7 @@ export async function watchDirectMessages({
                 'fullDocument.MAP.bapID': bapId,
                 ...blockHeightCondition,
               },
-             { 'fullDocument.AIP.address': targetAddress },
+              { 'fullDocument.AIP.address': targetAddress },
             ],
           },
           {
@@ -169,7 +167,6 @@ export async function watchDirectMessages({
                 ...blockHeightCondition,
               },
               { 'fullDocument.AIP.address': bapAddress },
-
             ],
           },
         ],
@@ -200,7 +197,7 @@ export async function watchAllMessages({
             'fullDocument.MAP.bapID': bapId,
             ...blockHeightCondition,
           },
-          { 'fullDocument.AIP.address': bapAddress }
+          { 'fullDocument.AIP.address': bapAddress },
         ],
       },
     },
