@@ -24,11 +24,11 @@ export async function processLikes(
     }
 
     for (const aip of like.AIP) {
-      if (!aip.algorithm_signing_component) {
-        console.warn('Invalid AIP entry - missing algorithm_signing_component:', like.tx?.h);
+      if (!aip.address) {
+        console.warn('Invalid AIP entry - missing address:', like.tx?.h);
         continue;
       }
-      signerAddresses.add(aip.algorithm_signing_component);
+      signerAddresses.add(aip.address);
     }
   }
 

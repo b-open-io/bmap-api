@@ -48,27 +48,30 @@ export async function getDirectMessages({
     }
   }
 
+  // Block height condition: either 0 (mempool) or greater than PROTOCOL_START_BLOCK
+  const blockHeightCondition = {
+    $or: [{ 'blk.i': 0 }, { 'blk.i': { $gt: PROTOCOL_START_BLOCK } }],
+  };
+
   const query = targetBapId
     ? {
         $and: [
-          { 'MAP.type': 'message', 'blk.i': { $gt: PROTOCOL_START_BLOCK } },
-          {
-            $or: [
+          { 'MAP.type': 'message', ...blockHeightCondition },
+          
               {
                 'MAP.bapID': targetBapId,
-                'AIP.algorithm_signing_component': identity.currentAddress,
+                'AIP.address': identity.currentAddress,
               },
               {
                 'MAP.bapID': bapId,
-                'AIP.algorithm_signing_component': targetIdentity.currentAddress,
+                'AIP.address': targetIdentity.currentAddress,
               },
-            ],
-          },
+        
         ],
       }
     : {
         'MAP.type': 'message',
-        'blk.i': { $gt: PROTOCOL_START_BLOCK },
+        ...blockHeightCondition,
         'MAP.bapID': bapId,
       };
 
@@ -82,9 +85,7 @@ export async function getDirectMessages({
   for (const msg of results) {
     if (!msg.AIP) continue;
     for (const aip of msg.AIP) {
-      if (aip.algorithm_signing_component) {
-        signerAddresses.add(aip.algorithm_signing_component);
-      }
+
       if (aip.address) {
         signerAddresses.add(aip.address);
       }
@@ -142,6 +143,12 @@ export async function watchDirectMessages({
   targetAddress,
 }: MessageQueryParams): Promise<ChangeStream> {
   const dbo = await getDbo();
+
+  // Block height condition for change stream: either 0 (mempool) or greater than PROTOCOL_START_BLOCK
+  const blockHeightCondition = {
+    $or: [{ 'fullDocument.blk.i': 0 }, { 'fullDocument.blk.i': { $gt: PROTOCOL_START_BLOCK } }],
+  };
+
   return dbo.collection('message').watch([
     {
       $match: {
@@ -150,28 +157,19 @@ export async function watchDirectMessages({
             $and: [
               {
                 'fullDocument.MAP.bapID': bapId,
-                'fullDocument.blk.i': { $gt: PROTOCOL_START_BLOCK },
+                ...blockHeightCondition,
               },
-              {
-                $or: [
-                  { 'fullDocument.AIP.algorithm_signing_component': targetAddress },
-                  { 'fullDocument.AIP.address': targetAddress },
-                ],
-              },
+             { 'fullDocument.AIP.address': targetAddress },
             ],
           },
           {
             $and: [
               {
                 'fullDocument.MAP.bapID': targetBapId,
-                'fullDocument.blk.i': { $gt: PROTOCOL_START_BLOCK },
+                ...blockHeightCondition,
               },
-              {
-                $or: [
-                  { 'fullDocument.AIP.algorithm_signing_component': bapAddress },
-                  { 'fullDocument.AIP.address': bapAddress },
-                ],
-              },
+              { 'fullDocument.AIP.address': bapAddress },
+
             ],
           },
         ],
@@ -188,17 +186,21 @@ export async function watchAllMessages({
   bapAddress,
 }: MessageQueryParams): Promise<ChangeStream> {
   const dbo = await getDbo();
+
+  // Block height condition for change stream: either 0 (mempool) or greater than PROTOCOL_START_BLOCK
+  const blockHeightCondition = {
+    $or: [{ 'fullDocument.blk.i': 0 }, { 'fullDocument.blk.i': { $gt: PROTOCOL_START_BLOCK } }],
+  };
+
   return dbo.collection('message').watch([
     {
       $match: {
         $and: [
-          { 'fullDocument.MAP.bapID': bapId, 'fullDocument.blk.i': { $gt: PROTOCOL_START_BLOCK } },
           {
-            $or: [
-              { 'fullDocument.AIP.algorithm_signing_component': bapAddress },
-              { 'fullDocument.AIP.address': bapAddress },
-            ],
+            'fullDocument.MAP.bapID': bapId,
+            ...blockHeightCondition,
           },
+          { 'fullDocument.AIP.address': bapAddress }
         ],
       },
     },

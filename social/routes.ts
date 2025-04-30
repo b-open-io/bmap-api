@@ -3,7 +3,6 @@ import { Elysia, t } from 'elysia';
 import type { ChangeStreamInsertDocument, Db } from 'mongodb';
 import { getBAPIdByAddress, resolveSigners } from '../bap.js';
 import type { BapIdentity } from '../bap.js';
-import { normalize } from '../bmap.js';
 import { client, readFromRedis, saveToRedis } from '../cache.js';
 import type { CacheError, CacheSigner, CacheValue } from '../cache.js';
 import { getDbo } from '../db.js';
@@ -142,7 +141,7 @@ export const socialRoutes = new Elysia()
           .project({ _id: 0 })
           .toArray()) as Message[];
 
-        // Normalize and validate each message
+        // Validate each message
         const validatedResults = results.map((msg) => ({
           ...msg,
           tx: { h: msg.tx?.h || '' },
@@ -490,9 +489,8 @@ export const socialRoutes = new Elysia()
       cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
         ws.send({
           tx: change.fullDocument?.tx.h,
-          bap_id: change.fullDocument?.MAP?.[0]?.bapID,
-          algorithm_signing_component: change.fullDocument?.AIP?.[0]?.algorithm_signing_component,
-          aip_address: change.fullDocument?.AIP?.[0]?.address,
+          targetBapID: change.fullDocument?.MAP?.[0]?.bapID,
+          address: change.fullDocument?.AIP?.[0]?.address,
         });
       });
     },

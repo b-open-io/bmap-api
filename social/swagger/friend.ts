@@ -8,11 +8,13 @@ export interface RelationshipState {
   themPublicKey?: string;
   unfriended: boolean;
   txid?: string;
+  height?: number;
 }
 
 export interface FriendRequest {
   bapID: string;
   txid: string;
+  height: number;
 }
 
 export interface FriendshipResponse {
@@ -39,12 +41,14 @@ export const FriendResponseSchema = t.Object({
     t.Object({
       bapID: t.String(),
       txid: t.String(),
+      height: t.Number(),
     })
   ),
   outgoing: t.Array(
     t.Object({
       bapID: t.String(),
       txid: t.String(),
+      height: t.Number(),
     })
   ),
 });

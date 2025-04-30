@@ -29,7 +29,6 @@ export interface Message {
   AIP?: {
     algorithm: string;
     address: string;
-    algorithm_signing_component: string;
   }[];
 }
 
@@ -85,7 +84,6 @@ export const ChannelMessageSchema = t.Object({
           t.Object({
             algorithm: t.String(),
             address: t.Optional(t.String()),
-            algorithm_signing_component: t.Optional(t.String()),
           })
         )
       ),
@@ -335,7 +333,6 @@ export const DMResponseSchema = t.Object({
           t.Object({
             algorithm: t.String(),
             address: t.Optional(t.String()),
-            algorithm_signing_component: t.Optional(t.String()),
           })
         )
       ),

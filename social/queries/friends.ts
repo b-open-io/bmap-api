@@ -29,13 +29,22 @@ export async function fetchAllFriendsAndUnfriends(
   const ownedAddresses = new Set<string>(idData.addresses.map((a) => a.address));
   console.log('Owned addresses:', [...ownedAddresses]);
 
+  // Block height condition: either 0 (mempool) or greater than PROTOCOL_START_BLOCK
+  const blockHeightCondition = {
+    $or: [{ 'blk.i': 0 }, { 'blk.i': { $gt: PROTOCOL_START_BLOCK } }],
+  };
+
   // Use Promise.all to parallelize the queries
   const [incomingFriends, outgoingFriends, incomingUnfriends, outgoingUnfriends] =
     await Promise.all([
       // Get incoming friend requests
       dbo
         .collection('friend')
-        .find({ 'MAP.type': 'friend', 'MAP.bapID': bapId, 'blk.i': { $gt: PROTOCOL_START_BLOCK } })
+        .find({
+          'MAP.type': 'friend',
+          'MAP.bapID': bapId,
+          ...blockHeightCondition,
+        })
         .toArray() as Promise<BmapTx[]>,
 
       // Get outgoing friend requests
@@ -43,11 +52,8 @@ export async function fetchAllFriendsAndUnfriends(
         .collection('friend')
         .find({
           'MAP.type': 'friend',
-          $or: [
-            { 'AIP.algorithm_signing_component': { $in: [...ownedAddresses] } },
-            { 'AIP.address': { $in: [...ownedAddresses] } },
-          ],
-          'blk.i': { $gt: PROTOCOL_START_BLOCK },
+          'AIP.address': { $in: [...ownedAddresses] },
+          ...blockHeightCondition,
         })
         .toArray() as Promise<BmapTx[]>,
 
@@ -62,7 +68,7 @@ export async function fetchAllFriendsAndUnfriends(
                 .find({
                   'MAP.type': 'unfriend',
                   'MAP.bapID': bapId,
-                  'blk.i': { $gt: PROTOCOL_START_BLOCK },
+                  ...blockHeightCondition,
                 })
                 .toArray()
             : []
@@ -78,11 +84,8 @@ export async function fetchAllFriendsAndUnfriends(
                 .collection('unfriend')
                 .find({
                   'MAP.type': 'unfriend',
-                  $or: [
-                    { 'AIP.algorithm_signing_component': { $in: [...ownedAddresses] } },
-                    { 'AIP.address': { $in: [...ownedAddresses] } },
-                  ],
-                  'blk.i': { $gt: PROTOCOL_START_BLOCK },
+                  'AIP.address': { $in: [...ownedAddresses] },
+                  ...blockHeightCondition,
                 })
                 .toArray()
             : []
@@ -115,7 +118,7 @@ export async function processRelationships(
 
     // Process each document in the chunk
     for (const doc of chunk) {
-      const address = doc?.AIP?.[0]?.algorithm_signing_component || doc?.AIP?.[0]?.address;
+      const address = doc?.AIP?.[0]?.address;
       if (!address) continue;
 
       let reqBap: string | null;
@@ -137,6 +140,7 @@ export async function processRelationships(
       const tgtBap = doc?.MAP?.[0]?.bapID;
       const publicKey = doc?.MAP?.[0]?.publicKey;
       const txid = doc?.tx?.h;
+      const height = doc?.blk?.i || 0;
 
       if (!reqBap || !tgtBap || !txid) continue;
 
@@ -148,6 +152,7 @@ export async function processRelationships(
           fromThem: false,
           unfriended: false,
           txid,
+          height,
         });
       }
 
@@ -170,10 +175,12 @@ export async function processRelationships(
           rel.fromMe = true;
           rel.mePublicKey = publicKey;
           rel.txid = txid;
+          rel.height = height;
         } else {
           rel.fromThem = true;
           rel.themPublicKey = publicKey;
           rel.txid = txid;
+          rel.height = height;
         }
       }
     }
@@ -202,11 +209,13 @@ export async function processRelationships(
       outgoing.push({
         bapID: other,
         txid: rel.txid || '',
+        height: rel.height || 0,
       });
     } else if (!rel.fromMe && rel.fromThem) {
       incoming.push({
         bapID: other,
         txid: rel.txid || '',
+        height: rel.height || 0,
       });
     }
   }

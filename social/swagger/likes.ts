@@ -25,7 +25,7 @@ export interface Reaction {
     emoji?: string;
   }[];
   AIP?: {
-    algorithm_signing_component: string;
+    address: string;
   }[];
 }
 
@@ -69,7 +69,7 @@ export const LikeResponseSchema = t.Array(
         AIP: t.Optional(
           t.Array(
             t.Object({
-              algorithm_signing_component: t.String(),
+              address: t.String(),
             })
           )
         ),

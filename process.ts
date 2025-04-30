@@ -3,9 +3,7 @@ import { parse } from 'bpu-ts';
 import chalk from 'chalk';
 import { getBAPIdByAddress } from './bap.js';
 import type { BapIdentity } from './bap.js';
-import { normalize, unNormalize } from './bmap.js';
 import { getDbo } from './db.js';
-import type { TransformedTx } from './types.js';
 
 const { allProtocols, TransformTx } = bmapjs;
 
@@ -56,25 +54,18 @@ export const processTransaction = async (
     console.log('Transformed transaction:', JSON.stringify(tx, null, 2));
 
     // Get BAP ID if available
-    const t = tx as TransformedTx;
+    const t = tx as BmapTx;
     let bapId: BapIdentity | undefined;
     console.log('Checking for AIP data...');
 
     if (t.AIP && Array.isArray(t.AIP) && t.AIP.length > 0) {
       const aip = {
-        algorithm_signing_component: t.AIP[0].algorithm_signing_component,
         address: t.AIP[0].address,
         signature: t.AIP[0].signature,
       } as AIP;
 
       console.log('Found AIP data:', aip);
-      if (aip.algorithm_signing_component) {
-        console.log(
-          'Getting BAP ID for algorithm_signing_component:',
-          aip.algorithm_signing_component
-        );
-        bapId = await getBAPIdByAddress(aip.algorithm_signing_component);
-      } else if (aip.address) {
+      if (aip.address) {
         console.log('Getting BAP ID for address:', aip.address);
         bapId = await getBAPIdByAddress(aip.address);
       }
@@ -88,34 +79,27 @@ export const processTransaction = async (
     //   // t.bapId = bapId;
     // }
 
-    // Normalize and save
-    const normalizedTx = normalize(t);
-    console.log('Normalized transaction:', JSON.stringify(normalizedTx, null, 2));
-
-    const unnormalizedTx = unNormalize(normalizedTx);
-
-    console.log('Unnormalized transaction:', JSON.stringify(unnormalizedTx, null, 2));
-
+    // Save
     // Add timestamp for unconfirmed transactions
-    if (!unnormalizedTx.blk?.t || unnormalizedTx.blk?.t === 0) {
+    if (!t.blk?.t || t.blk?.t === 0) {
       console.log('no block time, setting timestamp to now');
-      unnormalizedTx.timestamp = Math.floor(Date.now() / 1000);
+      t.timestamp = Math.floor(Date.now() / 1000);
     }
 
     // Save to collection based on MAP.type
     const dbo = await getDbo();
-    const mapType = unnormalizedTx.MAP?.[0]?.type;
+    const mapType = t.MAP?.[0]?.type;
     if (mapType) {
       console.log('Saving to collection based on MAP.type:', mapType);
       await dbo
         .collection(mapType)
-        .updateOne({ _id: unnormalizedTx.tx.h }, { $set: unnormalizedTx }, { upsert: true });
-      console.log(chalk.green(unnormalizedTx.tx.h));
+        .updateOne({ _id: t.tx.h }, { $set: t }, { upsert: true });
+      console.log(chalk.green(t.tx.h));
     }
 
     console.log('Transaction processing completed successfully');
     return {
-      result: unnormalizedTx,
+      result: t,
       signer: bapId,
     };
   } catch (error) {
