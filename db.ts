@@ -17,7 +17,7 @@ const getDbo = async () => {
     minPoolSize: 1,
     maxPoolSize: 10,
   });
-  db = client.db('bmap');
+  db = client.db('bsocial');
   return db;
 };
 

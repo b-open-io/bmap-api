@@ -161,17 +161,19 @@ export const socialRoutes = new Elysia()
           ],
           B: msg.B?.map((b) => ({
             encoding: b?.encoding || '',
-            Data: {
-              utf8: b.Data?.utf8 || '',
-              data: b.Data?.data,
-            },
+            // Data: {
+            //   utf8: b.Data?.utf8 || '',
+            //   data: b.Data?.data,
+            // },
+            content: b?.content || '',
           })) || [
             {
               encoding: '',
-              Data: {
-                utf8: '',
-                data: '',
-              },
+              // Data: {
+              //   utf8: '',
+              //   data: '',
+              // },
+              content: '',
             },
           ],
         }));
@@ -455,16 +457,16 @@ export const socialRoutes = new Elysia()
       }
       const targetAddress = targetIdentity.currentAddress;
 
-      const cursor = await watchDirectMessages({
-        bapId,
-        bapAddress,
-        targetBapId,
-        targetAddress,
-      });
+      // const cursor = await watchDirectMessages({
+      //   bapId,
+      //   bapAddress,
+      //   targetBapId,
+      //   targetAddress,
+      // });
 
-      cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
-        ws.send(change.fullDocument?.tx.h);
-      });
+      // cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
+      //   ws.send(change.fullDocument?.tx.h);
+      // });
     },
     detail: messageListenEndpointDetail,
   })
@@ -481,18 +483,18 @@ export const socialRoutes = new Elysia()
       }
       const bapAddress = identity.currentAddress;
 
-      const cursor = await watchAllMessages({
-        bapId,
-        bapAddress,
-      });
+      // const cursor = await watchAllMessages({
+      //   bapId,
+      //   bapAddress,
+      // });
 
-      cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
-        ws.send({
-          tx: change.fullDocument?.tx.h,
-          targetBapID: change.fullDocument?.MAP?.[0]?.bapID,
-          address: change.fullDocument?.AIP?.[0]?.address,
-        });
-      });
+      // cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
+      //   ws.send({
+      //     tx: change.fullDocument?.tx.h,
+      //     targetBapID: change.fullDocument?.MAP?.[0]?.bapID,
+      //     address: change.fullDocument?.AIP?.[0]?.address,
+      //   });
+      // });
     },
     detail: messageListenEndpointDetail,
   })

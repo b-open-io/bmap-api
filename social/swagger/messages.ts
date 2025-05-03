@@ -21,10 +21,11 @@ export interface Message {
   }[];
   B: {
     encoding: string;
-    Data: {
-      utf8: string;
-      data?: string;
-    };
+    // Data: {
+    //   utf8: string;
+    //   data?: string;
+    // };
+    content?: string;
   }[];
   AIP?: {
     algorithm: string;

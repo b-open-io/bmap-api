@@ -1149,7 +1149,7 @@ async function start() {
   const port = Number(process.env.PORT) || 3055;
   const host = process.env.HOST || '127.0.0.1';
 
-  app.listen({ port, hostname: host }, () => {
+  app.listen({ port }, () => {
     console.log(chalk.magenta('BMAP API'), chalk.green(`listening on ${host}:${port}!`));
   });
 }
