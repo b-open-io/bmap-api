@@ -207,6 +207,7 @@ export async function processRelationships(
         bapID: other,
         mePublicKey: rel.mePublicKey || '',
         themPublicKey: rel.themPublicKey || '',
+        txids: rel.txids || [],
       });
     } else if (rel.fromMe && !rel.fromThem) {
       outgoing.push({

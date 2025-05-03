@@ -28,6 +28,7 @@ export interface Friend {
   bapID: string;
   themPublicKey: string;
   mePublicKey: string;
+  txids?: string[];
 }
 
 export const FriendResponseSchema = t.Object({
