@@ -79,13 +79,12 @@ export async function getChannelMessages(params: {
     B: msg.B?.map((b) => ({
       encoding: b?.encoding || '',
       content: b?.content || '',
+      "content-type": (b && b['content-type']) || ''
     })) || [
       {
         encoding: '',
-        Data: {
-          utf8: '',
-          data: '',
-        },
+        content: '',
+        "content-type": '',
       },
     ],
   }));

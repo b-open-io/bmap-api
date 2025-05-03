@@ -22,6 +22,7 @@ export interface Message {
   B: {
     encoding: string;
     content?: string;
+    'content-type'?: string; // Optional content type
   }[];
   AIP?: {
     algorithm: string;
@@ -70,10 +71,8 @@ export const ChannelMessageSchema = t.Object({
       B: t.Array(
         t.Object({
           encoding: t.String(),
-          Data: t.Object({
-            utf8: t.String(),
-            data: t.Optional(t.String()),
-          }),
+          content: t.Optional(t.String()),
+          'content-type': t.Optional(t.String()),
         })
       ),
       AIP: t.Optional(

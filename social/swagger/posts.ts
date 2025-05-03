@@ -24,6 +24,7 @@ export interface Post {
     B: {
       encoding: string;
       content?: string;
+      'content-type'?: string;
     }[];
     AIP?: {
       algorithm: string;

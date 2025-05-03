@@ -57,6 +57,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
             B: post.B?.map((b) => ({
                 encoding: b?.encoding || '',
                 content: b?.content || '',
+                "content-type": (b && b['content-type']) || ''
             })) || [],
         },
         signers: signers.filter(s => s).map((s) => ({
@@ -88,6 +89,7 @@ export async function getPosts({
     } else if (bapId) {
         const identity = await fetchBapIdentityData(bapId);
         if (!identity?.currentAddress) {
+            console.log('No current address found for BAP ID:', bapId, identity);
             throw new Error('Invalid BAP identity data');
         }
         query['AIP.address'] = identity.currentAddress;
@@ -120,6 +122,7 @@ export async function getPosts({
         Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
     );
 
+    console.log('Results:', results)
     return {
         bapID: bapId,
         page,
@@ -137,6 +140,7 @@ export async function getPosts({
             B: msg.B?.map((b) => ({
                 encoding: b?.encoding || '',
                 content: b?.content || '',
+                "content-type": (b && b['content-type']) || ''
             })) || [],
         })),
         signers: signers.map((s) => ({

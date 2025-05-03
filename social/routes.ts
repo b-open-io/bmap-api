@@ -163,19 +163,13 @@ export const socialRoutes = new Elysia()
           ],
           B: msg.B?.map((b) => ({
             encoding: b?.encoding || '',
-            // Data: {
-            //   utf8: b.Data?.utf8 || '',
-            //   data: b.Data?.data,
-            // },
             content: b?.content || '',
+            'content-type': (b && b['content-type']) || '',
           })) || [
             {
               encoding: '',
-              // Data: {
-              //   utf8: '',
-              //   data: '',
-              // },
               content: '',
+              'content-type': '',
             },
           ],
         }));
