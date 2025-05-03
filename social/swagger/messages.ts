@@ -13,7 +13,7 @@ export interface Message {
   };
   MAP: {
     app: string;
-    type: string;
+    type: 'message';
     paymail?: string;
     context?: string;
     channel?: string;
@@ -21,10 +21,6 @@ export interface Message {
   }[];
   B: {
     encoding: string;
-    // Data: {
-    //   utf8: string;
-    //   data?: string;
-    // };
     content?: string;
   }[];
   AIP?: {

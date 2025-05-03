@@ -14,6 +14,7 @@ import { getLikes, processLikes } from './queries/likes.js';
 import { updateSignerCache } from './queries/messages.js';
 import { ChannelResponseSchema, channelsEndpointDetail } from './swagger/channels.js';
 import { ChannelParams } from './swagger/channels.js';
+import { Post, PostQuery } from './swagger/posts.js';
 import { FriendResponseSchema, friendEndpointDetail } from './swagger/friend.js';
 import { IdentityResponseSchema, identityEndpointDetail } from './swagger/identity.js';
 import type { LikeInfo, LikeRequest, Reaction, Reactions } from './swagger/likes.js';
@@ -32,6 +33,7 @@ import {
   directMessagesEndpointDetail,
   directMessagesWithTargetEndpointDetail,
 } from './swagger/messages.js';
+import { getPost, getPosts } from '../queries/posts.js';
 
 // Validation helper for signer data
 function validateSignerData(signer: BapIdentity): { isValid: boolean; errors: string[] } {
@@ -254,6 +256,76 @@ export const socialRoutes = new Elysia()
       detail: channelMessagesEndpointDetail,
     }
   )
+  .get('/feed/:bapId?', async ({set, query, params}) => {
+    try {
+      const postQuery = {
+        page: query.page ? Number.parseInt(query.page, 10) : 1,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+      }
+      return getPosts(postQuery);
+    } catch (error: unknown) {
+      console.error('Error fetching feed:', error);
+      set.status = 500;
+      return {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch feed',
+      };
+    }
+  }, {
+    query: PostQuery,
+  })
+  .get('/post/:txid', async ({set, params}) => {
+    try {
+      return getPost(params.txid);
+    } catch (error: unknown) {
+      console.error('Error fetching feed:', error);
+      set.status = 500;
+      return {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch feed',
+      };
+    }
+  }, {
+    query: PostQuery,
+  })
+  .get('/post/address/:address', async ({set, query, params}) => {
+    try {
+      const postQuery = {
+        address: params.address,
+        page: query.page ? Number.parseInt(query.page, 10) : 1,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+      }
+      return getPosts(postQuery);
+    } catch (error: unknown) {
+      console.error('Error fetching feed:', error);
+      set.status = 500;
+      return {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch feed',
+      };
+    }
+  }, {
+    query: PostQuery,
+  })
+  .get('/post/bap/:bapId', async ({set, query, params}) => {
+    try {
+      const postQuery = {
+        bapId: params.bapId,
+        page: query.page ? Number.parseInt(query.page, 10) : 1,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+      }
+      return getPosts(postQuery);
+    } catch (error: unknown) {
+      console.error('Error fetching feed:', error);
+      set.status = 500;
+      return {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch feed',
+      };
+    }
+  }, {
+    query: PostQuery,
+  })
   .post(
     '/likes',
     async ({ body }) => {
