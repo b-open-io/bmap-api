@@ -33,7 +33,7 @@ export type BapIdentity = {
   icon?: string;
 };
 
-const bapApiUrl = 'https://api.sigmaidentity.com/v1/';
+const bapApiUrl = 'https://api.sigmaidentity.com/api/v1/';
 
 type Payload = {
   address: string;
