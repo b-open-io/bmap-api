@@ -133,10 +133,7 @@ export async function getPosts({
             tx: { h: msg.tx?.h || '' },
             blk: msg.blk || { i: 0, t: 0 },
             timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
-            MAP: msg.MAP.map((m) => ({
-                ...m,
-                bapID: m.bapID || '',
-            })),
+            MAP: msg.MAP,
             B: msg.B?.map((b) => ({
                 encoding: b?.encoding || '',
                 content: b?.content || '',
