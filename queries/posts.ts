@@ -143,7 +143,7 @@ export async function getPosts({
                 "content-type": (b && b['content-type']) || ''
             })) || [],
         })),
-        signers: signers.map((s) => ({
+        signers: signers.filter(s => s).map((s) => ({
             idKey: s.idKey,
             rootAddress: s.rootAddress,
             currentAddress: s.currentAddress,
