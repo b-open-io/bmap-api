@@ -1,1 +1,2 @@
-export const PROTOCOL_START_BLOCK = 887888;
+export const PROTOCOL_START_BLOCK = 750000;
+// export const PROTOCOL_START_BLOCK = 887888;
