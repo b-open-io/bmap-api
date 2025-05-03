@@ -37,6 +37,7 @@ export const FriendResponseSchema = t.Object({
       bapID: t.String(),
       mePublicKey: t.String(),
       themPublicKey: t.String(),
+      txids: t.Optional(t.Array(t.String())),
     })
   ),
   incoming: t.Array(
