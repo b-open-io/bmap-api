@@ -168,6 +168,7 @@ export async function processRelationships(
         rel.unfriended = true;
         rel.fromMe = false;
         rel.fromThem = false;
+        rel.txids.push(txid);
       } else if (isFriend) {
         if (rel.unfriended) {
           rel.unfriended = false;
