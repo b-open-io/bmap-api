@@ -239,7 +239,7 @@ export const socialRoutes = new Elysia()
               tx: { h: '' },
               blk: { i: 0, t: 0 },
               MAP: [{ app: '', type: '', channel: '', paymail: '' }],
-              B: [{ encoding: '', Data: { utf8: '', data: '' } }],
+              B: [{ encoding: '', content: '' }],
             },
           ],
           signers: [],

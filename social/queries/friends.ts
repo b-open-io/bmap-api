@@ -151,6 +151,7 @@ export async function processRelationships(
           fromMe: false,
           fromThem: false,
           unfriended: false,
+          txids: [txid],
           txid,
           height,
         });
@@ -174,12 +175,14 @@ export async function processRelationships(
         if (isFromMe) {
           rel.fromMe = true;
           rel.mePublicKey = publicKey;
-          rel.txid = txid;
+          rel.txid = txid
+          rel.txids.push(txid);
           rel.height = height;
         } else {
           rel.fromThem = true;
           rel.themPublicKey = publicKey;
           rel.txid = txid;
+          rel.txids.push(txid);
           rel.height = height;
         }
       }
