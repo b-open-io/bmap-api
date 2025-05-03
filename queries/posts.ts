@@ -59,7 +59,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 content: b?.content || '',
             })) || [],
         },
-        signers: signers.map((s) => ({
+        signers: signers.filter(s => s).map((s) => ({
             idKey: s.idKey,
             rootAddress: s.rootAddress,
             currentAddress: s.currentAddress,
