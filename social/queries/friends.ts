@@ -151,7 +151,7 @@ export async function processRelationships(
           fromMe: false,
           fromThem: false,
           unfriended: false,
-          txids: [txid],
+          txids: new Set([txid]),
           txid,
           height,
         });
@@ -168,7 +168,7 @@ export async function processRelationships(
         rel.unfriended = true;
         rel.fromMe = false;
         rel.fromThem = false;
-        rel.txids.push(txid);
+        rel.txids.add(txid);
       } else if (isFriend) {
         if (rel.unfriended) {
           rel.unfriended = false;
@@ -177,13 +177,13 @@ export async function processRelationships(
           rel.fromMe = true;
           rel.mePublicKey = publicKey;
           rel.txid = txid
-          rel.txids.push(txid);
+          rel.txids.add(txid);
           rel.height = height;
         } else {
           rel.fromThem = true;
           rel.themPublicKey = publicKey;
           rel.txid = txid;
-          rel.txids.push(txid);
+          rel.txids.add(txid);
           rel.height = height;
         }
       }
@@ -208,7 +208,7 @@ export async function processRelationships(
         bapID: other,
         mePublicKey: rel.mePublicKey || '',
         themPublicKey: rel.themPublicKey || '',
-        txids: rel.txids || [],
+        txids: rel.txids ? [...rel.txids] : [],
       });
     } else if (rel.fromMe && !rel.fromThem) {
       outgoing.push({

@@ -8,7 +8,7 @@ export interface RelationshipState {
   themPublicKey?: string;
   unfriended: boolean;
   txid?: string;
-  txids?: string[];
+  txids?: Set<string>;
   height?: number;
 }
 
