@@ -149,7 +149,7 @@ export async function getPosts({
             timestamp: s.timestamp || 0,
             valid: s.valid ?? true,
             identityTxId: s.identityTxId || '',
-            identity: typeof s.identity === 'string' ? s.identity : JSON.stringify(s.identity) || '',
+            identity: s.identity,
         })),
     };
 }
