@@ -1,7 +1,7 @@
 import type { BmapTx } from 'bmapjs';
 import type { ChangeStream } from 'mongodb';
 import type { BapIdentity } from '../bap.js';
-import { getBAPIdByAddress } from '../bap.js';
+import { getBAPIdByAddress, getSigners } from '../bap.js';
 import { PROTOCOL_START_BLOCK } from '../constants.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
@@ -91,9 +91,7 @@ export async function getDirectMessages({
   }
 
   // Get BAP identities for all signers
-  const signers = await Promise.all(
-    Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
-  );
+  const signers = await getSigners([...signerAddresses])
 
   return {
     bapID: bapId,

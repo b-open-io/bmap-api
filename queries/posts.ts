@@ -1,5 +1,5 @@
 import type { BmapTx } from 'bmapjs';
-import { getBAPIdByAddress, type BapIdentity } from '../bap.js';
+import { getBAPIdByAddress, getSigners, type BapIdentity } from '../bap.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
 
@@ -46,9 +46,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
     }
 
     // Get BAP identities for all signers
-    const signers = await Promise.all(
-        Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
-    );
+    const signers = await getSigners([...signerAddresses])
 
     return {
         post: {
@@ -116,9 +114,7 @@ export async function getReplies({
     }
 
     // Get BAP identities for all signers
-    const signers = await Promise.all(
-        Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
-    );
+    const signers = await getSigners([...signerAddresses])
 
     console.log('Results:', results)
     return {
@@ -197,9 +193,10 @@ export async function getPosts({
     }
 
     // Get BAP identities for all signers
-    const signers = await Promise.all(
-        Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
-    );
+    const signers = await getSigners([...signerAddresses])
+    // await Promise.all(
+    //     Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
+    // );
 
     console.log('Results:', results)
     return {

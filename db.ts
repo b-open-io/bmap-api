@@ -21,6 +21,18 @@ const getDbo = async () => {
   return db;
 };
 
+const getBAPDbo = async () => {
+  if (db) {
+    return db;
+  }
+  client = await MongoClient.connect(process.env.BMAP_MONGO_URL, {
+    minPoolSize: 1,
+    maxPoolSize: 10,
+  });
+  db = client.db('bap');
+  return db;
+};
+
 const closeDb = async () => {
   if (client !== null) {
     try {
@@ -64,7 +76,7 @@ async function getState(): Promise<State | undefined> {
   return await dbo.collection('_state').findOne<State>({});
 }
 
-export { closeDb, getCollectionCounts, getCurrentBlockHeight, getDbo, getState };
+export { closeDb, getCollectionCounts, getCurrentBlockHeight, getDbo, getBAPDbo, getState };
 
 // db.c.createIndex({
 //   "MAP.app": 1,

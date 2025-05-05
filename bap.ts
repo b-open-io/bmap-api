@@ -1,6 +1,7 @@
 import type { BmapTx } from 'bmapjs';
 import _ from 'lodash';
 import { type CacheValue, readFromRedis, saveToRedis } from './cache.js';
+import { getBAPDbo } from './db.js';
 const { uniq, uniqBy } = _;
 
 interface BapAddress {
@@ -75,6 +76,47 @@ export const getBAPIdByAddress = async (
       }
     }
     return undefined;
+  } catch (e) {
+    console.log(e);
+    throw e;
+  }
+};
+
+export const getSigners = async (addresses: string[]): Promise<BapIdentity[] | undefined> => {
+  try {
+    const db = await getBAPDbo();
+    return db.collection<BapIdentity>("identities")
+      .find({"addresses.address": addresses})
+      .toArray()
+    
+    // const payload: Payload = {
+    //   address,
+    // };
+    // if (block) {
+    //   payload.block = block;
+    // }
+    // if (timestamp) {
+    //   payload.timestamp = timestamp;
+    // }
+    // console.log('payload', payload);
+    // const result = await fetch(`${bapApiUrl}identity/validByAddress`, {
+    //   method: 'POST',
+    //   headers: {
+    //     Accept: 'application/json',
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify(payload),
+    // });
+    // const data = await result.json();
+    // console.log('identity data', { data });
+    // if (data && data.status === 'OK' && data.result) {
+    //   try {
+    //     return data.result.identity;
+    //   } catch (e) {
+    //     console.log('Failed to parse BAP identity', e, data.result);
+    //   }
+    // }
+    // return undefined;
   } catch (e) {
     console.log(e);
     throw e;
