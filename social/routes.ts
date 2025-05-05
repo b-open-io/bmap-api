@@ -282,6 +282,20 @@ export const socialRoutes = new Elysia()
   }, {
     query: PostQuery,
   })
+  .get('/post/:txid/reply', async ({set, params}) => {
+    try {
+      return getPost(params.txid);
+    } catch (error: unknown) {
+      console.error('Error fetching feed:', error);
+      set.status = 500;
+      return {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch feed',
+      };
+    }
+  }, {
+    query: PostQuery,
+  })
   .get('/post/address/:address', async ({set, query, params}) => {
     try {
       const postQuery = {
