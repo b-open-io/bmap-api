@@ -82,13 +82,25 @@ export const getBAPIdByAddress = async (
   }
 };
 
-export const getSigners = async (addresses: string[]): Promise<BapIdentity[] | undefined> => {
+export const getSigners = async (addresses: string[]) => {
   try {
     const db = await getBAPDbo();
-    return db.collection<BapIdentity>("identities")
+    const identities = await db.collection<BapIdentity>("identities")
       .find({"addresses.address": {$in: addresses}})
       .toArray()
-    
+
+    console.log({ addresses, identitiels: identities });
+    return identities.map((s) => ({
+      idKey: s.idKey,
+      rootAddress: s.rootAddress,
+      currentAddress: s.currentAddress,
+      addresses: s.addresses,
+      block: s.block || 0,
+      timestamp: s.timestamp || 0,
+      valid: s.valid,
+      identityTxId: s.identityTxId || '',
+      identity: s.identity,
+  }))
     // const payload: Payload = {
     //   address,
     // };

@@ -64,17 +64,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 "content-type": (b && b['content-type']) || ''
             })) || [],
         },
-        signers: signers.filter(s => s).map((s) => ({
-            idKey: s.idKey,
-            rootAddress: s.rootAddress,
-            currentAddress: s.currentAddress,
-            addresses: s.addresses,
-            block: s.block || 0,
-            timestamp: s.timestamp || 0,
-            valid: s.valid ?? true,
-            identityTxId: s.identityTxId || '',
-            identity: typeof s.identity === 'string' ? s.identity : JSON.stringify(s.identity) || '',
-        })),
+        signers,
     };
 }
 
@@ -133,17 +123,7 @@ export async function getReplies({
                 "content-type": (b && b['content-type']) || ''
             })) || [],
         })),
-        signers: signers.filter(s => s).map((s) => ({
-            idKey: s.idKey,
-            rootAddress: s.rootAddress,
-            currentAddress: s.currentAddress,
-            addresses: s.addresses,
-            block: s.block || 0,
-            timestamp: s.timestamp || 0,
-            valid: s.valid ?? true,
-            identityTxId: s.identityTxId || '',
-            identity: s.identity,
-        })),
+        signers,
     };
 }
 
@@ -216,16 +196,6 @@ export async function getPosts({
                 "content-type": (b && b['content-type']) || ''
             })) || [],
         })),
-        signers: signers.filter(s => s).map((s) => ({
-            idKey: s.idKey,
-            rootAddress: s.rootAddress,
-            currentAddress: s.currentAddress,
-            addresses: s.addresses,
-            block: s.block || 0,
-            timestamp: s.timestamp || 0,
-            valid: s.valid ?? true,
-            identityTxId: s.identityTxId || '',
-            identity: s.identity,
-        })),
+        signers,
     };
 }

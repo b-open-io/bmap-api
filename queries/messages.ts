@@ -113,17 +113,7 @@ export async function getDirectMessages({
         "content-type": (b && b['content-type']) || ''
       })),
     })),
-    signers: signers.map((s) => ({
-      idKey: s.idKey,
-      rootAddress: s.rootAddress,
-      currentAddress: s.currentAddress,
-      addresses: s.addresses,
-      block: s.block || 0,
-      timestamp: s.timestamp || 0,
-      valid: s.valid ?? true,
-      identityTxId: s.identityTxId || '',
-      identity: s.identity,
-    })),
+    signers,
   };
 }
 
