@@ -91,7 +91,7 @@ export const getSigners = async (addresses: string[]) => {
 
     console.log({ addresses, identitiels: identities });
     return identities.map((s) => ({
-      idKey: s.idKey,
+      idKey: s._id,
       rootAddress: s.rootAddress,
       currentAddress: s.currentAddress,
       addresses: s.addresses,
