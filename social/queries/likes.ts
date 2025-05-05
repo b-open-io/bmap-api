@@ -3,8 +3,9 @@ import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
-import type { LikeInfo, LikeRequest, Reaction } from '../swagger/likes.js';
-import { validateSignerData } from './identity.js';
+import { PostsResponse } from '../../queries/posts.js';
+import type { LikesParams, Reaction } from '../swagger/likes.js';
+import { fetchBapIdentityData, validateSignerData } from './identity.js';
 
 // Helper to process likes with better error handling and logging
 export async function processLikes(
@@ -95,55 +96,137 @@ export async function processLikes(
   };
 }
 
-export async function getLikes(request: LikeRequest): Promise<LikeInfo[]> {
-  if (!request.txids && !request.messageIds) {
-    throw new Error('Must provide either txids or messageIds');
+// export async function getLikes(request: LikeRequest): Promise<LikeInfo[]> {
+//   if (!request.txids && !request.messageIds) {
+//     throw new Error('Must provide either txids or messageIds');
+//   }
+
+//   const db = await getDbo();
+//   const results: LikeInfo[] = [];
+
+//   if (request.txids) {
+//     for (const txid of request.txids) {
+//       const likes = (await db
+//         .collection('like')
+//         .find({
+//           'MAP.type': 'like',
+//           'MAP.tx': txid,
+//         })
+//         .toArray()) as unknown as Reaction[];
+
+//       const { signers } = await processLikes(likes);
+
+//       results.push({
+//         txid,
+//         likes,
+//         total: likes.length,
+//         signers,
+//       });
+//     }
+//   }
+
+//   if (request.messageIds) {
+//     for (const messageId of request.messageIds) {
+//       const likes = (await db
+//         .collection('like')
+//         .find({
+//           'MAP.type': 'like',
+//           'MAP.messageID': messageId,
+//         })
+//         .toArray()) as unknown as Reaction[];
+
+//       const { signers } = await processLikes(likes);
+
+//       results.push({
+//         txid: messageId,
+//         likes,
+//         total: likes.length,
+//         signers,
+//       });
+//     }
+//   }
+
+//   return results;
+// }
+
+export async function getLikes({
+  txid,
+  bapId,
+  page = 1,
+  limit = 100,
+}: LikesParams): Promise<PostsResponse> {
+  const dbo = await getDbo();
+  const skip = (page - 1) * limit;
+
+  const query: {
+    "MAP.type"?: string | undefined,
+    "AIP.address"?: string | undefined,
+  } = {}
+  if (txid) {
+    query['MAP.tx'] = txid;
+  } else if (bapId) {
+    const identity = await fetchBapIdentityData(bapId);
+    if (!identity?.currentAddress) {
+      console.log('No current address found for BAP ID:', bapId, identity);
+      throw new Error('Invalid BAP identity data');
+    }
+    query['AIP.address'] = identity.currentAddress;
   }
 
-  const db = await getDbo();
-  const results: LikeInfo[] = [];
+  console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);
+  const [results, count] = await Promise.all([
+    dbo.collection('like')
+      .find(query)
+      .sort({ 'timestamp': -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray(),
+    dbo.collection('like').countDocuments(query),
+  ]);
 
-  if (request.txids) {
-    for (const txid of request.txids) {
-      const likes = (await db
-        .collection('like')
-        .find({
-          'MAP.type': 'like',
-          'MAP.tx': txid,
-        })
-        .toArray()) as unknown as Reaction[];
-
-      const { signers } = await processLikes(likes);
-
-      results.push({
-        txid,
-        likes,
-        total: likes.length,
-        signers,
-      });
+  // Get unique signer addresses
+  const signerAddresses = new Set<string>();
+  for (const msg of results) {
+    if (!msg.AIP) continue;
+    for (const aip of msg.AIP) {
+      if (aip.address) {
+        signerAddresses.add(aip.address);
+      }
     }
   }
 
-  if (request.messageIds) {
-    for (const messageId of request.messageIds) {
-      const likes = (await db
-        .collection('like')
-        .find({
-          'MAP.type': 'like',
-          'MAP.messageID': messageId,
-        })
-        .toArray()) as unknown as Reaction[];
+  // Get BAP identities for all signers
+  const signers = await Promise.all(
+    Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
+  );
 
-      const { signers } = await processLikes(likes);
-
-      results.push({
-        txid: messageId,
-        likes,
-        total: likes.length,
-        signers,
-      });
-    }
-  }
-
-  return results;
+  console.log('Results:', results)
+  return {
+    page,
+    limit,
+    count,
+    results: results.map((msg) => ({
+      ...msg,
+      tx: { h: msg.tx?.h || '' },
+      blk: msg.blk || { i: 0, t: 0 },
+      timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
+      MAP: msg.MAP,
+      B: msg.B?.map((b) => ({
+        encoding: b?.encoding || '',
+        content: b?.content || '',
+        "content-type": (b && b['content-type']) || ''
+      })) || [],
+    })),
+    signers: signers.filter(s => s).map((s) => ({
+      idKey: s.idKey,
+      rootAddress: s.rootAddress,
+      currentAddress: s.currentAddress,
+      addresses: s.addresses,
+      block: s.block || 0,
+      timestamp: s.timestamp || 0,
+      valid: s.valid ?? true,
+      identityTxId: s.identityTxId || '',
+      identity: s.identity,
+    })),
+  };
 }

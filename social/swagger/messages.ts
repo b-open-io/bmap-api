@@ -13,7 +13,7 @@ export interface Message {
   };
   MAP: {
     app: string;
-    type: 'message';
+    type: string;
     paymail?: string;
     context?: string;
     channel?: string;

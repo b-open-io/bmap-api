@@ -2,6 +2,14 @@ import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
 import type { BapIdentity } from '../../bap.js';
 
+export interface LikesParams {
+  bapId?: string;
+  txid?: string;
+  page: number;
+  limit: number;
+}
+
+
 export interface Reactions {
   channel: string;
   page: number;

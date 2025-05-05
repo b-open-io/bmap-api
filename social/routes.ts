@@ -33,7 +33,7 @@ import {
   directMessagesEndpointDetail,
   directMessagesWithTargetEndpointDetail,
 } from './swagger/messages.js';
-import { getPost, getPosts } from '../queries/posts.js';
+import { getPost, getPosts, getReplies } from '../queries/posts.js';
 
 // Validation helper for signer data
 function validateSignerData(signer: BapIdentity): { isValid: boolean; errors: string[] } {
@@ -150,28 +150,15 @@ export const socialRoutes = new Elysia()
           blk: { i: msg.blk?.i || 0, t: msg.blk?.t || 0 },
           MAP: msg.MAP?.map((m) => ({
             app: m.app || '',
-            type: m.type || '',
+            type: 'message', // Ensure type is explicitly set to "message"
             channel: m.channel || '',
             paymail: m.paymail || '',
-          })) || [
-            {
-              app: '',
-              type: '',
-              channel: '',
-              paymail: '',
-            },
-          ],
+          })) || [],
           B: msg.B?.map((b) => ({
             encoding: b?.encoding || '',
             content: b?.content || '',
             'content-type': (b && b['content-type']) || '',
-          })) || [
-            {
-              encoding: '',
-              content: '',
-              'content-type': '',
-            },
-          ],
+          })) || [],
         }));
 
         // Initialize empty signers array with proper type
@@ -234,7 +221,7 @@ export const socialRoutes = new Elysia()
             {
               tx: { h: '' },
               blk: { i: 0, t: 0 },
-              MAP: [{ app: '', type: '', channel: '', paymail: '' }],
+              MAP: [{ app: '', type: 'message', channel: '', paymail: '' }],
               B: [{ encoding: '', content: '' }],
             },
           ],
@@ -250,9 +237,10 @@ export const socialRoutes = new Elysia()
       detail: channelMessagesEndpointDetail,
     }
   )
-  .get('/feed/:bapId?', async ({set, query, params}) => {
+  .get('/feed/:bapId?', async ({ set, query, params }) => {
     try {
       const postQuery = {
+        bapId: params.bapId,
         page: query.page ? Number.parseInt(query.page, 10) : 1,
         limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
       }
@@ -268,7 +256,7 @@ export const socialRoutes = new Elysia()
   }, {
     query: PostQuery,
   })
-  .get('/post/:txid', async ({set, params}) => {
+  .get('/post/:txid', async ({ set, params }) => {
     try {
       return getPost(params.txid);
     } catch (error: unknown) {
@@ -282,9 +270,14 @@ export const socialRoutes = new Elysia()
   }, {
     query: PostQuery,
   })
-  .get('/post/:txid/reply', async ({set, params}) => {
+  .get('/post/:txid/reply', async ({ set, query, params }) => {
     try {
-      return getPost(params.txid);
+      const repliesQuery = {
+        txid: params.txid,
+        page: query.page ? Number.parseInt(query.page, 10) : 1,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+      }
+      return getReplies(repliesQuery);
     } catch (error: unknown) {
       console.error('Error fetching feed:', error);
       set.status = 500;
@@ -296,7 +289,26 @@ export const socialRoutes = new Elysia()
   }, {
     query: PostQuery,
   })
-  .get('/post/address/:address', async ({set, query, params}) => {
+  .get('/post/:txid/like', async ({ set, query, params }) => {
+    try {
+      const repliesQuery = {
+        txid: params.txid,
+        page: query.page ? Number.parseInt(query.page, 10) : 1,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+      }
+      return getLikes(repliesQuery);
+    } catch (error: unknown) {
+      console.error('Error fetching feed:', error);
+      set.status = 500;
+      return {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch feed',
+      };
+    }
+  }, {
+    query: PostQuery,
+  })
+  .get('/post/address/:address', async ({ set, query, params }) => {
     try {
       const postQuery = {
         address: params.address,
@@ -315,7 +327,7 @@ export const socialRoutes = new Elysia()
   }, {
     query: PostQuery,
   })
-  .get('/post/bap/:bapId', async ({set, query, params}) => {
+  .get('/post/bap/:bapId', async ({ set, query, params }) => {
     try {
       const postQuery = {
         bapId: params.bapId,
@@ -323,6 +335,25 @@ export const socialRoutes = new Elysia()
         limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
       }
       return getPosts(postQuery);
+    } catch (error: unknown) {
+      console.error('Error fetching feed:', error);
+      set.status = 500;
+      return {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch feed',
+      };
+    }
+  }, {
+    query: PostQuery,
+  })
+  .get('/post/bap/:bapId/like', async ({ set, query, params }) => {
+    try {
+      const repliesQuery = {
+        bapId: params.bapId,
+        page: query.page ? Number.parseInt(query.page, 10) : 1,
+        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+      }
+      return getLikes(repliesQuery);
     } catch (error: unknown) {
       console.error('Error fetching feed:', error);
       set.status = 500;
@@ -537,16 +568,16 @@ export const socialRoutes = new Elysia()
       }
       const targetAddress = targetIdentity.currentAddress;
 
-      // const cursor = await watchDirectMessages({
-      //   bapId,
-      //   bapAddress,
-      //   targetBapId,
-      //   targetAddress,
-      // });
+      const cursor = await watchDirectMessages({
+        bapId,
+        bapAddress,
+        targetBapId,
+        targetAddress,
+      });
 
-      // cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
-      //   ws.send(change.fullDocument?.tx.h);
-      // });
+      cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
+        ws.send(change.fullDocument?.tx.h);
+      });
     },
     detail: messageListenEndpointDetail,
   })
@@ -563,18 +594,18 @@ export const socialRoutes = new Elysia()
       }
       const bapAddress = identity.currentAddress;
 
-      // const cursor = await watchAllMessages({
-      //   bapId,
-      //   bapAddress,
-      // });
+      const cursor = await watchAllMessages({
+        bapId,
+        bapAddress,
+      });
 
-      // cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
-      //   ws.send({
-      //     tx: change.fullDocument?.tx.h,
-      //     targetBapID: change.fullDocument?.MAP?.[0]?.bapID,
-      //     address: change.fullDocument?.AIP?.[0]?.address,
-      //   });
-      // });
+      cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
+        ws.send({
+          tx: change.fullDocument?.tx.h,
+          targetBapID: change.fullDocument?.MAP?.[0]?.bapID,
+          address: change.fullDocument?.AIP?.[0]?.address,
+        });
+      });
     },
     detail: messageListenEndpointDetail,
   })
@@ -628,10 +659,10 @@ export const socialRoutes = new Elysia()
                     currentAddress: identity.currentAddress || '',
                     addresses: Array.isArray(identity.addresses)
                       ? identity.addresses.map((addr) => ({
-                          address: addr.address || '',
-                          txId: addr.txId || '',
-                          block: typeof addr.block === 'number' ? addr.block : undefined,
-                        }))
+                        address: addr.address || '',
+                        txId: addr.txId || '',
+                        block: typeof addr.block === 'number' ? addr.block : undefined,
+                      }))
                       : [],
                     identity:
                       typeof identity.identity === 'string'
