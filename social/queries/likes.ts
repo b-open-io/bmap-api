@@ -159,8 +159,8 @@ export async function getLikes({
   const skip = (page - 1) * limit;
 
   const query: {
-    "MAP.type"?: string | undefined,
-    "AIP.address"?: string | undefined,
+    "MAP.type"?: string,
+    "AIP.address"?: {$in: string[]},
   } = {}
   if (txid) {
     query['MAP.tx'] = txid;
@@ -170,7 +170,7 @@ export async function getLikes({
       console.log('No current address found for BAP ID:', bapId, identity);
       throw new Error('Invalid BAP identity data');
     }
-    query['AIP.address'] = identity.currentAddress;
+    query['AIP.address'] = {$in: identity.addresses.map(a => a.address)};
   }
 
   console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);

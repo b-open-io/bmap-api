@@ -160,7 +160,9 @@ export async function getPosts({
     const dbo = await getDbo();
     const skip = (page - 1) * limit;
 
-    const query: any = {}
+    const query: {
+        "AIP.address"?: string | { $in: string[] };
+    } = {}
     if (address) {
         query['AIP.address'] = address;
     } else if (bapId) {
@@ -169,7 +171,7 @@ export async function getPosts({
             console.log('No current address found for BAP ID:', bapId, identity);
             throw new Error('Invalid BAP identity data');
         }
-        query['AIP.address'] = identity.currentAddress;
+        query['AIP.address'] = {$in: identity.addresses.map(a => a.address)};
     }
 
     console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);
