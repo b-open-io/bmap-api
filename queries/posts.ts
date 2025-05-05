@@ -178,7 +178,7 @@ export async function getPosts({
     //     Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
     // );
 
-    console.log('Results:', results)
+    // console.log('Results:', results)
     return {
         bapID: bapId,
         page,
