@@ -86,7 +86,7 @@ export const getSigners = async (addresses: string[]): Promise<BapIdentity[] | u
   try {
     const db = await getBAPDbo();
     return db.collection<BapIdentity>("identities")
-      .find({"addresses.address": addresses})
+      .find({"addresses.address": {$in: addresses}})
       .toArray()
     
     // const payload: Payload = {

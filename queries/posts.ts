@@ -115,7 +115,7 @@ export async function getReplies({
 
     // Get BAP identities for all signers
     const signers = await getSigners([...signerAddresses])
-
+    
     console.log('Results:', results)
     return {
         page,
