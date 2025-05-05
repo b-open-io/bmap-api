@@ -85,7 +85,7 @@ export const getBAPIdByAddress = async (
 export const getSigners = async (addresses: string[]) => {
   try {
     const db = await getBAPDbo();
-    const identities = await db.collection<BapIdentity>("identities")
+    const identities = await db.collection("identities")
       .find({"addresses.address": {$in: addresses}})
       .toArray()
 
@@ -99,7 +99,7 @@ export const getSigners = async (addresses: string[]) => {
       timestamp: s.timestamp || 0,
       valid: s.valid,
       identityTxId: s.identityTxId || '',
-      identity: s.identity,
+      identity: s.profile,
   }))
     // const payload: Payload = {
     //   address,
