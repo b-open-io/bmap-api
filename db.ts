@@ -3,6 +3,7 @@ import mongo from 'mongodb';
 const MongoClient = mongo.MongoClient;
 let client: mongo.MongoClient = null;
 let db: mongo.Db = null;
+let bapDb: mongo.Db = null;
 
 type State = {
   _id: string;
@@ -22,15 +23,15 @@ const getDbo = async () => {
 };
 
 const getBAPDbo = async () => {
-  if (db) {
-    return db;
+  if (bapDb) {
+    return bapDb;
   }
   client = await MongoClient.connect(process.env.BMAP_MONGO_URL, {
     minPoolSize: 1,
     maxPoolSize: 10,
   });
-  db = client.db('bap');
-  return db;
+  bapDb = client.db('bap');
+  return bapDb;
 };
 
 const closeDb = async () => {
