@@ -346,7 +346,7 @@ export const socialRoutes = new Elysia()
   }, {
     query: PostQuery,
   })
-  .get('/post/bap/:bapId/like', async ({ set, query, params }) => {
+  .get('/bap/:bapId/like', async ({ set, query, params }) => {
     try {
       const repliesQuery = {
         bapId: params.bapId,
