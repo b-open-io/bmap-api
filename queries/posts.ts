@@ -102,7 +102,8 @@ export async function getPost(txid: string): Promise<PostResponse> {
                         $cond: [
                             { $and: [
                                 { $ne: ['$likes.MAP.emoji', null] },
-                                { $ne: ['$likes.MAP.emoji', undefined] }
+                                { $ne: ['$likes.MAP.emoji', undefined] },
+                                { $ne: ['$likes.MAP.emoji', ''] } // Exclude empty strings
                             ]},
                             1,
                             0
@@ -123,13 +124,14 @@ export async function getPost(txid: string): Promise<PostResponse> {
                         $cond: [
                             { $and: [
                                 { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] }
+                                { $ne: ['$_id.emoji', undefined] },
+                                { $ne: ['$_id.emoji', ''] } // Exclude empty strings
                             ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
                             },
-                            "$$REMOVE" // Exclude likes without an emoji
+                            "$$REMOVE" // Exclude likes without a valid emoji
                         ]
                     }
                 }
@@ -262,7 +264,8 @@ export async function getReplies({
                         $cond: [
                             { $and: [
                                 { $ne: ['$likes.MAP.emoji', null] },
-                                { $ne: ['$likes.MAP.emoji', undefined] }
+                                { $ne: ['$likes.MAP.emoji', undefined] },
+                                { $ne: ['$likes.MAP.emoji', ''] } // Exclude empty strings
                             ]},
                             1,
                             0
@@ -283,13 +286,14 @@ export async function getReplies({
                         $cond: [
                             { $and: [
                                 { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] }
+                                { $ne: ['$_id.emoji', undefined] },
+                                { $ne: ['$_id.emoji', ''] } // Exclude empty strings
                             ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
                             },
-                            "$$REMOVE" // Exclude likes without an emoji
+                            "$$REMOVE" // Exclude likes without a valid emoji
                         ]
                     }
                 }
@@ -439,7 +443,8 @@ export async function getPosts({
                         $cond: [
                             { $and: [
                                 { $ne: ['$likes.MAP.emoji', null] },
-                                { $ne: ['$likes.MAP.emoji', undefined] }
+                                { $ne: ['$likes.MAP.emoji', undefined] },
+                                { $ne: ['$likes.MAP.emoji', ''] } // Exclude empty strings
                             ]},
                             1,
                             0
@@ -460,13 +465,14 @@ export async function getPosts({
                         $cond: [
                             { $and: [
                                 { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] }
+                                { $ne: ['$_id.emoji', undefined] },
+                                { $ne: ['$_id.emoji', ''] } // Exclude empty strings
                             ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
                             },
-                            "$$REMOVE" // Exclude likes without an emoji
+                            "$$REMOVE" // Exclude likes without a valid emoji
                         ]
                     }
                 }
