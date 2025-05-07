@@ -58,16 +58,32 @@ export async function getPost(txid: string): Promise<PostResponse> {
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
         {
             $group: {
-                _id: '$_id',
-                post: { $first: '$$ROOT' },
-                totalLikes: { $sum: 1 },
+                _id: {
+                    postId: '$_id',
+                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
+                },
+                post: { $first: { $cond: [{ $eq: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, '$$ROOT', '$post'] } },
+                count: { $sum: 1 }
+            }
+        },
+        {
+            $group: {
+                _id: '$_id.postId',
+                post: { $first: '$post' },
+                totalLikes: { $sum: '$count' },
                 reactions: {
                     $push: {
-                        emoji: '$likes.MAP.emoji',
-                        count: { $sum: 1 },
-                    },
-                },
-            },
+                        $cond: [
+                            { $ne: ['$_id.emoji', null] },
+                            {
+                                emoji: '$_id.emoji',
+                                count: '$count'
+                            },
+                            "$$REMOVE"
+                        ]
+                    }
+                }
+            }
         },
         {
             $lookup: {
@@ -79,7 +95,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
         },
         {
             $addFields: {
-                'post.meta.tx': '$post.tx.h', // Populate meta.tx with tx.h
+                'post.meta.tx': '$post.tx.h',
                 'post.meta.likes': '$totalLikes',
                 'post.meta.reactions': '$reactions',
                 'post.meta.replies': { $size: '$replies' },
@@ -149,16 +165,32 @@ export async function getReplies({
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
         {
             $group: {
-                _id: '$_id',
-                post: { $first: '$$ROOT' },
-                totalLikes: { $sum: 1 },
+                _id: {
+                    postId: '$_id',
+                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
+                },
+                post: { $first: { $cond: [{ $eq: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, '$$ROOT', '$post'] } },
+                count: { $sum: 1 }
+            }
+        },
+        {
+            $group: {
+                _id: '$_id.postId',
+                post: { $first: '$post' },
+                totalLikes: { $sum: '$count' },
                 reactions: {
                     $push: {
-                        emoji: '$likes.MAP.emoji',
-                        count: { $sum: 1 },
-                    },
-                },
-            },
+                        $cond: [
+                            { $ne: ['$_id.emoji', null] },
+                            {
+                                emoji: '$_id.emoji',
+                                count: '$count'
+                            },
+                            "$$REMOVE"
+                        ]
+                    }
+                }
+            }
         },
         {
             $lookup: {
@@ -170,7 +202,7 @@ export async function getReplies({
         },
         {
             $addFields: {
-                'post.meta.tx': '$post.tx.h', // Populate meta.tx with tx.h
+                'post.meta.tx': '$post.tx.h',
                 'post.meta.likes': '$totalLikes',
                 'post.meta.reactions': '$reactions',
                 'post.meta.replies': { $size: '$replies' },
@@ -259,37 +291,32 @@ export async function getPosts({
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
         {
             $group: {
-                _id: '$_id',
-                post: { $first: '$$ROOT' },
-                totalLikes: { $sum: 1 },
-                reactions: {
-                    $push: '$likes.MAP.emoji', // Collect all emojis
+                _id: {
+                    postId: '$_id',
+                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
                 },
-            },
+                post: { $first: { $cond: [{ $eq: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, '$$ROOT', '$post'] } },
+                count: { $sum: 1 }
+            }
         },
         {
-            $addFields: {
+            $group: {
+                _id: '$_id.postId',
+                post: { $first: '$post' },
+                totalLikes: { $sum: '$count' },
                 reactions: {
-                    $arrayToObject: {
-                        $map: {
-                            input: { $setUnion: ['$reactions'] }, // Get unique emojis
-                            as: 'emoji',
-                            in: {
-                                k: '$$emoji',
-                                v: {
-                                    $size: {
-                                        $filter: {
-                                            input: '$reactions',
-                                            as: 'reaction',
-                                            cond: { $eq: ['$$reaction', '$$emoji'] },
-                                        },
-                                    },
-                                },
+                    $push: {
+                        $cond: [
+                            { $ne: ['$_id.emoji', null] },
+                            {
+                                emoji: '$_id.emoji',
+                                count: '$count'
                             },
-                        },
-                    },
-                },
-            },
+                            "$$REMOVE"
+                        ]
+                    }
+                }
+            }
         },
         {
             $lookup: {
