@@ -23,48 +23,73 @@ export interface PostsResponse {
     count: number;
     results: BmapTx[];
     signers: BapIdentity[];
+    likes?: {
+        tx: string;
+        likes: number;
+    }[];
+    replies?: number;
 }
 
 export interface PostResponse {
     post: BmapTx;
     signers: BapIdentity[];
+    likes: number;
 }
 
 export async function getPost(txid: string): Promise<PostResponse> {
     const dbo = await getDbo();
-    const post = await dbo.collection<BmapTx>('post').findOne({ _id: txid });
 
-    if (!post) {
+    const aggregationPipeline = [
+        { $match: { _id: txid } },
+        {
+            $lookup: {
+                from: 'like',
+                localField: '_id',
+                foreignField: 'MAP.tx',
+                as: 'likes',
+            },
+        },
+        {
+            $addFields: {
+                likes: { $size: '$likes' },
+            },
+        },
+    ];
+
+    const post = await dbo.collection<BmapTx>('post').aggregate(aggregationPipeline).toArray();
+
+    if (!post.length) {
         throw new Error(`Post with txid ${txid} not found`);
     }
-    // Get unique signer addresses
+
     const signerAddresses = new Set<string>();
-    for (const aip of post.AIP) {
+    for (const aip of post[0].AIP || []) {
         if (aip.address) {
             signerAddresses.add(aip.address);
         }
     }
 
-    // Get BAP identities for all signers
-    const signers = await getSigners([...signerAddresses])
+    const signers = await getSigners([...signerAddresses]);
 
     return {
         post: {
-            ...post,
-            tx: { h: post.tx?.h || '' },
-            blk: post.blk || { i: 0, t: 0 },
-            timestamp: post.timestamp || post.blk?.t || Math.floor(Date.now() / 1000),
-            MAP: post.MAP.map((m) => ({
+            ...post[0],
+            likes: undefined,
+            tx: { h: post[0].tx?.h || '' },
+            blk: post[0].blk || { i: 0, t: 0 },
+            timestamp: post[0].timestamp || post[0].blk?.t || Math.floor(Date.now() / 1000),
+            MAP: post[0].MAP.map((m) => ({
                 ...m,
                 bapID: m.bapID || '',
             })),
-            B: post.B?.map((b) => ({
+            B: post[0].B?.map((b) => ({
                 encoding: b?.encoding || '',
                 content: b?.content || '',
-                "content-type": (b && b['content-type']) || ''
+                "content-type": (b && b['content-type']) || '',
             })) || [],
         },
         signers,
+        likes: post[0].likes,
     };
 }
 
@@ -124,6 +149,10 @@ export async function getReplies({
             })) || [],
         })),
         signers,
+        likes: results.map(result => ({
+            tx: result._id.toString(),
+            likes: result.likes,
+        }))
     };
 }
 
@@ -138,7 +167,7 @@ export async function getPosts({
 
     const query: {
         "AIP.address"?: string | { $in: string[] };
-    } = {}
+    } = {};
     if (address) {
         query['AIP.address'] = address;
     } else if (bapId) {
@@ -147,17 +176,33 @@ export async function getPosts({
             console.log('No current address found for BAP ID:', bapId, identity);
             throw new Error('Invalid BAP identity data');
         }
-        query['AIP.address'] = {$in: identity.addresses.map(a => a.address)};
+        query['AIP.address'] = { $in: identity.addresses.map(a => a.address) };
     }
 
     console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);
+
+    const aggregationPipeline = [
+        { $match: query },
+        { $sort: { 'timestamp': -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+            $lookup: {
+                from: 'like',
+                localField: '_id',
+                foreignField: 'MAP.tx',
+                as: 'likes',
+            },
+        },
+        {
+            $addFields: {
+                likes: { $size: '$likes' },
+            },
+        },
+    ];
+
     const [results, count] = await Promise.all([
-        dbo.collection('post')
-            .find(query)
-            .sort({ 'timestamp': -1 })
-            .skip(skip)
-            .limit(limit)
-            .toArray(),
+        dbo.collection('post').aggregate(aggregationPipeline).toArray(),
         dbo.collection('post').countDocuments(query),
     ]);
 
@@ -173,12 +218,8 @@ export async function getPosts({
     }
 
     // Get BAP identities for all signers
-    const signers = await getSigners([...signerAddresses])
-    // await Promise.all(
-    //     Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
-    // );
+    const signers = await getSigners([...signerAddresses]);
 
-    // console.log('Results:', results)
     return {
         bapID: bapId,
         page,
@@ -186,6 +227,7 @@ export async function getPosts({
         count,
         results: results.map((msg) => ({
             ...msg,
+            likes: undefined,
             tx: { h: msg.tx?.h || '' },
             blk: msg.blk || { i: 0, t: 0 },
             timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
@@ -193,9 +235,13 @@ export async function getPosts({
             B: msg.B?.map((b) => ({
                 encoding: b?.encoding || '',
                 content: b?.content || '',
-                "content-type": (b && b['content-type']) || ''
+                "content-type": (b && b['content-type']) || '',
             })) || [],
         })),
         signers,
+        likes: results.map(result => ({
+            tx: result._id,
+            likes: result.likes,
+        }))
     };
 }
