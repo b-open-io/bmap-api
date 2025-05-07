@@ -47,16 +47,9 @@ export async function getPost(txid: string): Promise<PostResponse> {
 
     const aggregationPipeline = [
         // Step 1: Match the posts we want
-        { $match: query },
+        { $match: { _id: txid } },
 
-        // Step 2: Sort by timestamp descending (newest first)
-        { $sort: { timestamp: -1 } },
-
-        // Step 3: Pagination
-        { $skip: skip },
-        { $limit: limit },
-
-        // Step 4: Put the post in a property called "post"
+        // Step 2: Put the post in a property called "post"
         {
             $replaceRoot: {
                 newRoot: {
@@ -65,7 +58,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
             }
         },
 
-        // Step 5: Lookup to get replies
+        // Step 3: Lookup to get replies
         {
             $lookup: {
                 from: 'post',
@@ -75,7 +68,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
             },
         },
 
-        // Step 6: Lookup to get likes
+        // Step 4: Lookup to get likes
         {
             $lookup: {
                 from: 'like',
@@ -85,17 +78,17 @@ export async function getPost(txid: string): Promise<PostResponse> {
             },
         },
 
-        // Step 7: Calculate total likes before unwinding
+        // Step 5: Calculate total likes before unwinding
         {
             $addFields: {
                 totalLikes: { $size: { $ifNull: ['$likes', []] } } // Count the total number of likes
             }
         },
 
-        // Step 8: Unwind likes to process emoji reactions
+        // Step 6: Unwind likes to process emoji reactions
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
 
-        // Step 9: Group by post ID and emoji to count reactions
+        // Step 7: Group by post ID and emoji to count reactions
         {
             $group: {
                 _id: {
@@ -103,6 +96,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
                 post: { $first: '$post' },
+                totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 count: {
                     $sum: {
                         $cond: [
@@ -120,7 +114,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
             }
         },
 
-        // Step 10: Group by post ID to consolidate reactions
+        // Step 8: Group by post ID to consolidate reactions
         {
             $group: {
                 _id: '$_id.postId',
@@ -146,7 +140,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
             }
         },
 
-        // Step 11: Add the meta property with replies, likes, and reactions
+        // Step 9: Add the meta property with replies, likes, and reactions
         {
             $addFields: {
                 meta: {
@@ -203,7 +197,7 @@ export async function getReplies({
 }: RepliesParams): Promise<PostsResponse> {
     const dbo = await getDbo();
     const skip = (page - 1) * limit;
-    const query = { "MAP.tx": txid}
+    const query = { "MAP.tx": txid }
 
 
     // Start with a basic pipeline
@@ -265,6 +259,7 @@ export async function getReplies({
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
                 post: { $first: '$post' },
+                totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 count: {
                     $sum: {
                         $cond: [
@@ -444,6 +439,7 @@ export async function getPosts({
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
                 post: { $first: '$post' },
+                totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 count: {
                     $sum: {
                         $cond: [
