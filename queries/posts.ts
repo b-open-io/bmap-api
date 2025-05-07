@@ -100,12 +100,10 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 count: {
                     $sum: {
                         $cond: [
-                            {
-                                $and: [
-                                    { $ne: ['$likes.MAP.emoji', null] },
-                                    { $ne: ['$likes.MAP.emoji', undefined] }
-                                ]
-                            },
+                            { $and: [
+                                { $ne: ['$likes.MAP.emoji', null] },
+                                { $ne: ['$likes.MAP.emoji', undefined] }
+                            ]},
                             1,
                             0
                         ]
@@ -123,17 +121,15 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 reactions: {
                     $push: {
                         $cond: [
-                            {
-                                $and: [
-                                    { $ne: ['$_id.emoji', null] },
-                                    { $ne: ['$_id.emoji', undefined] }
-                                ]
-                            },
+                            { $and: [
+                                { $ne: ['$_id.emoji', null] },
+                                { $ne: ['$_id.emoji', undefined] }
+                            ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
                             },
-                            "$$REMOVE"
+                            "$$REMOVE" // Exclude likes without an emoji
                         ]
                     }
                 }
@@ -264,12 +260,10 @@ export async function getReplies({
                 count: {
                     $sum: {
                         $cond: [
-                            {
-                                $and: [
-                                    { $ne: ['$likes.MAP.emoji', null] },
-                                    { $ne: ['$likes.MAP.emoji', undefined] }
-                                ]
-                            },
+                            { $and: [
+                                { $ne: ['$likes.MAP.emoji', null] },
+                                { $ne: ['$likes.MAP.emoji', undefined] }
+                            ]},
                             1,
                             0
                         ]
@@ -287,17 +281,15 @@ export async function getReplies({
                 reactions: {
                     $push: {
                         $cond: [
-                            {
-                                $and: [
-                                    { $ne: ['$_id.emoji', null] },
-                                    { $ne: ['$_id.emoji', undefined] }
-                                ]
-                            },
+                            { $and: [
+                                { $ne: ['$_id.emoji', null] },
+                                { $ne: ['$_id.emoji', undefined] }
+                            ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
                             },
-                            "$$REMOVE"
+                            "$$REMOVE" // Exclude likes without an emoji
                         ]
                     }
                 }
@@ -445,12 +437,10 @@ export async function getPosts({
                 count: {
                     $sum: {
                         $cond: [
-                            {
-                                $and: [
-                                    { $ne: ['$likes.MAP.emoji', null] },
-                                    { $ne: ['$likes.MAP.emoji', undefined] }
-                                ]
-                            },
+                            { $and: [
+                                { $ne: ['$likes.MAP.emoji', null] },
+                                { $ne: ['$likes.MAP.emoji', undefined] }
+                            ]},
                             1,
                             0
                         ]
@@ -468,17 +458,15 @@ export async function getPosts({
                 reactions: {
                     $push: {
                         $cond: [
-                            {
-                                $and: [
-                                    { $ne: ['$_id.emoji', null] },
-                                    { $ne: ['$_id.emoji', undefined] }
-                                ]
-                            },
+                            { $and: [
+                                { $ne: ['$_id.emoji', null] },
+                                { $ne: ['$_id.emoji', undefined] }
+                            ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
                             },
-                            "$$REMOVE"
+                            "$$REMOVE" // Exclude likes without an emoji
                         ]
                     }
                 }
