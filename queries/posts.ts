@@ -55,6 +55,13 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 as: 'likes',
             },
         },
+        // Count total likes first (including those without emoji)
+        {
+            $addFields: {
+                totalLikesCount: { $size: '$likes' }
+            }
+        },
+        // Then unwind to process emoji reactions
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
         {
             $group: {
@@ -63,14 +70,27 @@ export async function getPost(txid: string): Promise<PostResponse> {
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
                 },
                 post: { $first: '$$ROOT' }, // Always keep the original document
-                count: { $sum: { $cond: [{ $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, 1, 0] } }
+                // Count reactions only where emoji exists
+                count: { 
+                    $sum: { 
+                        $cond: [
+                            { $and: [
+                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] },
+                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, undefined] }
+                            ]}, 
+                            1, 
+                            0
+                        ] 
+                    } 
+                }
             }
         },
         {
             $group: {
                 _id: '$_id.postId',
                 post: { $first: '$post' },
-                totalLikes: { $sum: '$count' },
+                // Use the pre-calculated total likes count
+                totalLikes: { $first: '$post.totalLikesCount' },
                 reactions: {
                     $push: {
                         $cond: [
@@ -178,6 +198,13 @@ export async function getReplies({
                 as: 'likes',
             },
         },
+        // Count total likes first (including those without emoji)
+        {
+            $addFields: {
+                totalLikesCount: { $size: '$likes' }
+            }
+        },
+        // Then unwind to process emoji reactions
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
         {
             $group: {
@@ -186,14 +213,27 @@ export async function getReplies({
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
                 },
                 post: { $first: '$$ROOT' }, // Always keep the original document
-                count: { $sum: { $cond: [{ $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, 1, 0] } }
+                // Count reactions only where emoji exists
+                count: { 
+                    $sum: { 
+                        $cond: [
+                            { $and: [
+                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] },
+                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, undefined] }
+                            ]}, 
+                            1, 
+                            0
+                        ] 
+                    } 
+                }
             }
         },
         {
             $group: {
                 _id: '$_id.postId',
                 post: { $first: '$post' },
-                totalLikes: { $sum: '$count' },
+                // Use the pre-calculated total likes count
+                totalLikes: { $first: '$post.totalLikesCount' },
                 reactions: {
                     $push: {
                         $cond: [
@@ -318,22 +358,42 @@ export async function getPosts({
                 as: 'likes',
             },
         },
+        // Count total likes first (including those without emoji)
+        {
+            $addFields: {
+                totalLikesCount: { $size: '$likes' }
+            }
+        },
+        // Then unwind to process emoji reactions
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
         {
             $group: {
                 _id: {
                     postId: '$_id',
-                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
+                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] }
                 },
-                post: { $first: '$$ROOT' }, // Always keep the original document
-                count: { $sum: { $cond: [{ $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, 1, 0] } }
+                post: { $first: '$$ROOT' },
+                // Count reactions only where emoji exists
+                count: { 
+                    $sum: { 
+                        $cond: [
+                            { $and: [
+                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] },
+                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, undefined] }
+                            ]}, 
+                            1, 
+                            0
+                        ] 
+                    } 
+                }
             }
         },
         {
             $group: {
                 _id: '$_id.postId',
                 post: { $first: '$post' },
-                totalLikes: { $sum: '$count' },
+                // Use the pre-calculated total likes count
+                totalLikes: { $first: '$post.totalLikesCount' },
                 reactions: {
                     $push: {
                         $cond: [
