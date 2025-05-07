@@ -144,6 +144,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
         {
             $addFields: {
                 meta: {
+                    tx: "$post.tx.h",
                     replies: { $size: { $ifNull: ['$post.replies', []] } }, // Count the number of replies
                     likes: '$totalLikes', // Use the pre-calculated total likes count
                     reactions: '$reactions' // Add the reactions array
@@ -307,6 +308,7 @@ export async function getReplies({
         {
             $addFields: {
                 meta: {
+                    tx: "$post.tx.h",
                     replies: { $size: { $ifNull: ['$post.replies', []] } }, // Count the number of replies
                     likes: '$totalLikes', // Use the pre-calculated total likes count
                     reactions: '$reactions' // Add the reactions array
@@ -487,6 +489,7 @@ export async function getPosts({
         {
             $addFields: {
                 meta: {
+                    tx: "$post.tx.h",
                     replies: { $size: { $ifNull: ['$post.replies', []] } }, // Count the number of replies
                     likes: '$totalLikes', // Use the pre-calculated total likes count
                     reactions: '$reactions' // Add the reactions array
