@@ -72,10 +72,8 @@ export async function getPost(txid: string): Promise<PostResponse> {
         {
             $lookup: {
                 from: 'post',
-                let: { postId: '$_id' },
-                pipeline: [
-                    { $match: { $expr: { $and: [{ $eq: ['$MAP.tx', '$$postId'] }, { $eq: ['$MAP.context', 'tx'] }] } } },
-                ],
+                localField: '_id',
+                foreignField: 'MAP.tx',
                 as: 'replies',
             },
         },
@@ -165,10 +163,8 @@ export async function getReplies({
         {
             $lookup: {
                 from: 'post',
-                let: { postId: '$_id' },
-                pipeline: [
-                    { $match: { $expr: { $and: [{ $eq: ['$MAP.tx', '$$postId'] }, { $eq: ['$MAP.context', 'tx'] }] } } },
-                ],
+                localField: '_id',
+                foreignField: 'MAP.tx',
                 as: 'replies',
             },
         },
@@ -277,10 +273,8 @@ export async function getPosts({
         {
             $lookup: {
                 from: 'post',
-                let: { postId: '$_id' },
-                pipeline: [
-                    { $match: { $expr: { $and: [{ $eq: ['$MAP.tx', '$$postId'] }, { $eq: ['$MAP.context', 'tx'] }] } } },
-                ],
+                localField: '_id',
+                foreignField: 'MAP.tx',
                 as: 'replies',
             },
         },
