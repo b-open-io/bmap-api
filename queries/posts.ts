@@ -125,6 +125,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
         throw new Error(`Post with txid ${txid} not found`);
     }
 
+    console.log('Post found:', posts[0]);
     const {post, meta} = posts[0];
     const signerAddresses = new Set<string>();
     for (const aip of post.AIP || []) {
