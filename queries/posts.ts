@@ -96,7 +96,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
                 post: { $first: '$post' },
-                replies: { $first: '$post.replies' }, // Preserve the replies field
+                replies: { $first: '$replies' }, // Preserve the replies field
                 totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 count: {
                     $sum: {
@@ -125,10 +125,10 @@ export async function getPost(txid: string): Promise<PostResponse> {
                     $push: {
                         $cond: [
                             { $and: [
-                                { $ne: ['$_id.emoji', null] }, // Ensure emoji is not null
-                                { $ne: ['$_id.emoji', undefined] }, // Ensure emoji is not undefined
-                                { $ne: ['$_id.emoji', ''] }, // Ensure emoji is not an empty string
-                                { $ifNull: ['$_id.emoji', false] } // Ensure emoji exists in the document
+                                { $ne: ['$_id.emoji', null] },
+                                { $ne: ['$_id.emoji', undefined] },
+                                { $ne: ['$_id.emoji', ''] },
+                                { $ifNull: ['$_id.emoji', false] }
                             ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
@@ -160,7 +160,6 @@ export async function getPost(txid: string): Promise<PostResponse> {
         throw new Error(`Post with txid ${txid} not found`);
     }
 
-    console.log('Post found:', posts[0]);
     const { post, meta } = posts[0];
     const signerAddresses = new Set<string>();
     for (const aip of post.AIP || []) {
