@@ -62,8 +62,8 @@ export async function getPost(txid: string): Promise<PostResponse> {
                     postId: '$_id',
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
                 },
-                post: { $first: { $cond: [{ $eq: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, '$$ROOT', '$post'] } },
-                count: { $sum: 1 }
+                post: { $first: '$$ROOT' }, // Always keep the original document
+                count: { $sum: { $cond: [{ $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, 1, 0] } }
             }
         },
         {
@@ -74,7 +74,10 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 reactions: {
                     $push: {
                         $cond: [
-                            { $ne: ['$_id.emoji', null] },
+                            { $and: [
+                                { $ne: ['$_id.emoji', null] },
+                                { $ne: ['$_id.emoji', undefined] }
+                            ]},
                             {
                                 emoji: '$_id.emoji',
                                 count: '$count'
@@ -95,23 +98,50 @@ export async function getPost(txid: string): Promise<PostResponse> {
         },
         {
             $addFields: {
-                'post.meta.tx': '$post.tx.h',
-                'post.meta.likes': '$totalLikes',
-                'post.meta.reactions': '$reactions',
-                'post.meta.replies': { $size: '$replies' },
-            },
+                meta: {
+                    tx: '$post.tx.h',
+                    likes: '$totalLikes',
+                    reactions: {
+                        $filter: {
+                            input: '$reactions',
+                            as: 'reaction',
+                            cond: { 
+                                $and: [
+                                    { $ne: ['$$reaction.emoji', null] },
+                                    { $gt: ['$$reaction.count', 0] }
+                                ]
+                            }
+                        }
+                    },
+                    replies: { $size: '$replies' }
+                }
+            }
         },
-        { $replaceRoot: { newRoot: '$post' } },
+        {
+            $project: {
+                _id: '$post._id',
+                AIP: '$post.AIP',
+                B: '$post.B',
+                MAP: '$post.MAP',
+                blk: '$post.blk',
+                in: '$post.in',
+                out: '$post.out',
+                timestamp: '$post.timestamp',
+                tx: '$post.tx',
+                meta: 1
+            }
+        }
     ];
 
-    const post = await dbo.collection<BmapTx>('post').aggregate(aggregationPipeline).toArray();
+    const posts = await dbo.collection<BmapTx>('post').aggregate(aggregationPipeline).toArray();
 
-    if (!post.length) {
+    if (!posts.length) {
         throw new Error(`Post with txid ${txid} not found`);
     }
 
+    const {post, meta} = posts[0];
     const signerAddresses = new Set<string>();
-    for (const aip of post[0].AIP || []) {
+    for (const aip of post.AIP || []) {
         if (aip.address) {
             signerAddresses.add(aip.address);
         }
@@ -121,23 +151,22 @@ export async function getPost(txid: string): Promise<PostResponse> {
 
     return {
         post: {
-            ...post[0],
-            meta: undefined,
-            tx: { h: post[0].tx?.h || '' },
-            blk: post[0].blk || { i: 0, t: 0 },
-            timestamp: post[0].timestamp || post[0].blk?.t || Math.floor(Date.now() / 1000),
-            MAP: post[0].MAP.map((m) => ({
+            ...post,
+            tx: { h: post.tx?.h || '' },
+            blk: post.blk || { i: 0, t: 0 },
+            timestamp: post.timestamp || post.blk?.t || Math.floor(Date.now() / 1000),
+            MAP: post.MAP.map((m) => ({
                 ...m,
                 bapID: m.bapID || '',
             })),
-            B: post[0].B?.map((b) => ({
+            B: post.B?.map((b) => ({
                 encoding: b?.encoding || '',
                 content: b?.content || '',
                 "content-type": (b && b['content-type']) || '',
             })) || [],
         },
         signers,
-        meta: post[0].meta,
+        meta,
     };
 }
 
