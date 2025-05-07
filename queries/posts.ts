@@ -23,17 +23,23 @@ export interface PostsResponse {
     count: number;
     results: BmapTx[];
     signers: BapIdentity[];
-    likes?: {
-        tx: string;
-        likes: number;
-    }[];
-    replies?: number;
+    meta?: Meta[];
+}
+
+export interface Meta {
+    tx: string;
+    likes: number;
+    reactions: {
+        emoji: string;
+        count: number;
+    }[],
+    replies: number;
 }
 
 export interface PostResponse {
     post: BmapTx;
     signers: BapIdentity[];
-    likes: number;
+    meta: Meta;
 }
 
 export async function getPost(txid: string): Promise<PostResponse> {
@@ -49,11 +55,39 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 as: 'likes',
             },
         },
+        { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
         {
-            $addFields: {
-                likes: { $size: '$likes' },
+            $group: {
+                _id: '$_id',
+                post: { $first: '$$ROOT' },
+                totalLikes: { $sum: 1 },
+                reactions: {
+                    $push: {
+                        emoji: '$likes.MAP.emoji',
+                        count: { $sum: 1 },
+                    },
+                },
             },
         },
+        {
+            $lookup: {
+                from: 'post',
+                let: { postId: '$_id' },
+                pipeline: [
+                    { $match: { $expr: { $and: [{ $eq: ['$MAP.tx', '$$postId'] }, { $eq: ['$MAP.context', 'tx'] }] } } },
+                ],
+                as: 'replies',
+            },
+        },
+        {
+            $addFields: {
+                'post.meta.tx': '$post.tx.h', // Populate meta.tx with tx.h
+                'post.meta.likes': '$totalLikes',
+                'post.meta.reactions': '$reactions',
+                'post.meta.replies': { $size: '$replies' },
+            },
+        },
+        { $replaceRoot: { newRoot: '$post' } },
     ];
 
     const post = await dbo.collection<BmapTx>('post').aggregate(aggregationPipeline).toArray();
@@ -74,7 +108,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
     return {
         post: {
             ...post[0],
-            likes: undefined,
+            meta: undefined,
             tx: { h: post[0].tx?.h || '' },
             blk: post[0].blk || { i: 0, t: 0 },
             timestamp: post[0].timestamp || post[0].blk?.t || Math.floor(Date.now() / 1000),
@@ -89,7 +123,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
             })) || [],
         },
         signers,
-        likes: post[0].likes,
+        meta: post[0].meta,
     };
 }
 
@@ -101,23 +135,59 @@ export async function getReplies({
     const dbo = await getDbo();
     const skip = (page - 1) * limit;
 
-    const query: any = {
-        "MAP.tx": txid,
-        "MAP.context": "tx",
-    }
+    const aggregationPipeline = [
+        { $match: { "MAP.tx": txid, "MAP.context": "tx" } },
+        { $sort: { 'timestamp': -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+            $lookup: {
+                from: 'like',
+                localField: '_id',
+                foreignField: 'MAP.tx',
+                as: 'likes',
+            },
+        },
+        { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
+        {
+            $group: {
+                _id: '$_id',
+                post: { $first: '$$ROOT' },
+                totalLikes: { $sum: 1 },
+                reactions: {
+                    $push: {
+                        emoji: '$likes.MAP.emoji',
+                        count: { $sum: 1 },
+                    },
+                },
+            },
+        },
+        {
+            $lookup: {
+                from: 'post',
+                let: { postId: '$_id' },
+                pipeline: [
+                    { $match: { $expr: { $and: [{ $eq: ['$MAP.tx', '$$postId'] }, { $eq: ['$MAP.context', 'tx'] }] } } },
+                ],
+                as: 'replies',
+            },
+        },
+        {
+            $addFields: {
+                'post.meta.tx': '$post.tx.h', // Populate meta.tx with tx.h
+                'post.meta.likes': '$totalLikes',
+                'post.meta.reactions': '$reactions',
+                'post.meta.replies': { $size: '$replies' },
+            },
+        },
+        { $replaceRoot: { newRoot: '$post' } },
+    ];
 
-    console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);
     const [results, count] = await Promise.all([
-        dbo.collection('post')
-            .find(query)
-            .sort({ 'timestamp': -1 })
-            .skip(skip)
-            .limit(limit)
-            .toArray(),
-        dbo.collection('post').countDocuments(query),
+        dbo.collection('post').aggregate(aggregationPipeline).toArray(),
+        dbo.collection('post').countDocuments({ "MAP.tx": txid, "MAP.context": "tx" }),
     ]);
 
-    // Get unique signer addresses
     const signerAddresses = new Set<string>();
     for (const msg of results) {
         if (!msg.AIP) continue;
@@ -128,16 +198,15 @@ export async function getReplies({
         }
     }
 
-    // Get BAP identities for all signers
-    const signers = await getSigners([...signerAddresses])
-    
-    console.log('Results:', results)
+    const signers = await getSigners([...signerAddresses]);
+
     return {
         page,
         limit,
         count,
         results: results.map((msg) => ({
             ...msg,
+            meta: undefined,
             tx: { h: msg.tx?.h || '' },
             blk: msg.blk || { i: 0, t: 0 },
             timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
@@ -145,14 +214,11 @@ export async function getReplies({
             B: msg.B?.map((b) => ({
                 encoding: b?.encoding || '',
                 content: b?.content || '',
-                "content-type": (b && b['content-type']) || ''
+                "content-type": (b && b['content-type']) || '',
             })) || [],
         })),
         signers,
-        likes: results.map(result => ({
-            tx: result._id.toString(),
-            likes: result.likes,
-        }))
+        meta: results.map(result => result.meta)
     };
 }
 
@@ -194,11 +260,39 @@ export async function getPosts({
                 as: 'likes',
             },
         },
+        { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
         {
-            $addFields: {
-                likes: { $size: '$likes' },
+            $group: {
+                _id: '$_id',
+                post: { $first: '$$ROOT' },
+                totalLikes: { $sum: 1 },
+                reactions: {
+                    $push: {
+                        emoji: '$likes.MAP.emoji',
+                        count: { $sum: 1 },
+                    },
+                },
             },
         },
+        {
+            $lookup: {
+                from: 'post',
+                let: { postId: '$_id' },
+                pipeline: [
+                    { $match: { $expr: { $and: [{ $eq: ['$MAP.tx', '$$postId'] }, { $eq: ['$MAP.context', 'tx'] }] } } },
+                ],
+                as: 'replies',
+            },
+        },
+        {
+            $addFields: {
+                'post.meta.tx': '$post.tx.h', // Populate meta.tx with tx.h
+                'post.meta.likes': '$totalLikes',
+                'post.meta.reactions': '$reactions',
+                'post.meta.replies': { $size: '$replies' },
+            },
+        },
+        { $replaceRoot: { newRoot: '$post' } },
     ];
 
     const [results, count] = await Promise.all([
@@ -227,7 +321,7 @@ export async function getPosts({
         count,
         results: results.map((msg) => ({
             ...msg,
-            likes: undefined,
+            meta: undefined,
             tx: { h: msg.tx?.h || '' },
             blk: msg.blk || { i: 0, t: 0 },
             timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
@@ -239,9 +333,6 @@ export async function getPosts({
             })) || [],
         })),
         signers,
-        likes: results.map(result => ({
-            tx: result._id,
-            likes: result.likes,
-        }))
+        meta: results.map(result => result.meta)
     };
 }
