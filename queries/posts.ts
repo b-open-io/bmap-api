@@ -96,6 +96,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
                 post: { $first: '$post' },
+                replies: { $first: '$post.replies' }, // Preserve the replies field
                 totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 count: {
                     $sum: {
@@ -118,6 +119,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
             $group: {
                 _id: '$_id.postId',
                 post: { $first: '$post' },
+                replies: { $first: '$replies' }, // Preserve the replies field
                 totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 reactions: {
                     $push: {
@@ -144,7 +146,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
             $addFields: {
                 meta: {
                     tx: "$post.tx.h",
-                    replies: { $size: { $ifNull: ['$post.replies', []] } }, // Count the number of replies
+                    replies: { $size: { $ifNull: ['$replies', []] } }, // Count the number of replies
                     likes: '$totalLikes', // Use the pre-calculated total likes count
                     reactions: '$reactions' // Add the reactions array
                 }
@@ -259,6 +261,7 @@ export async function getReplies({
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
                 post: { $first: '$post' },
+                replies: { $first: '$post.replies' }, // Preserve the replies field
                 totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 count: {
                     $sum: {
@@ -281,6 +284,7 @@ export async function getReplies({
             $group: {
                 _id: '$_id.postId',
                 post: { $first: '$post' },
+                replies: { $first: '$replies' }, // Preserve the replies field
                 totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 reactions: {
                     $push: {
@@ -307,7 +311,7 @@ export async function getReplies({
             $addFields: {
                 meta: {
                     tx: "$post.tx.h",
-                    replies: { $size: { $ifNull: ['$post.replies', []] } }, // Count the number of replies
+                    replies: { $size: { $ifNull: ['$replies', []] } }, // Count the number of replies
                     likes: '$totalLikes', // Use the pre-calculated total likes count
                     reactions: '$reactions' // Add the reactions array
                 }
@@ -439,6 +443,7 @@ export async function getPosts({
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
                 post: { $first: '$post' },
+                replies: { $first: '$post.replies' }, // Preserve the replies field
                 totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 count: {
                     $sum: {
@@ -461,6 +466,7 @@ export async function getPosts({
             $group: {
                 _id: '$_id.postId',
                 post: { $first: '$post' },
+                replies: { $first: '$replies' }, // Preserve the replies field
                 totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 reactions: {
                     $push: {
@@ -487,7 +493,7 @@ export async function getPosts({
             $addFields: {
                 meta: {
                     tx: "$post.tx.h",
-                    replies: { $size: { $ifNull: ['$post.replies', []] } }, // Count the number of replies
+                    replies: { $size: { $ifNull: ['$replies', []] } }, // Count the number of replies
                     likes: '$totalLikes', // Use the pre-calculated total likes count
                     reactions: '$reactions' // Add the reactions array
                 }
