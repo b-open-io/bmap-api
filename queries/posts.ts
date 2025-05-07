@@ -116,20 +116,6 @@ export async function getPost(txid: string): Promise<PostResponse> {
                     replies: { $size: '$replies' }
                 }
             }
-        },
-        {
-            $project: {
-                _id: '$post._id',
-                AIP: '$post.AIP',
-                B: '$post.B',
-                MAP: '$post.MAP',
-                blk: '$post.blk',
-                in: '$post.in',
-                out: '$post.out',
-                timestamp: '$post.timestamp',
-                tx: '$post.tx',
-                meta: 1
-            }
         }
     ];
 
