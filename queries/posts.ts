@@ -245,7 +245,7 @@ export async function getPosts({
 
     const aggregationPipeline = [
         { $match: query },
-        { $sort: { 'timestamp': -1 } },
+        { $sort: { timestamp: -1 } },
         { $skip: skip },
         { $limit: limit },
         {
@@ -263,17 +263,30 @@ export async function getPosts({
                 post: { $first: '$$ROOT' },
                 totalLikes: { $sum: 1 },
                 reactions: {
-                    $push: {
-                        $arrayElemAt: [
-                            {
-                                $filter: {
-                                    input: '$likes.MAP',
-                                    as: 'map',
-                                    cond: { $eq: ['$$map.tx', '$_id'] },
+                    $push: '$likes.MAP.emoji', // Collect all emojis
+                },
+            },
+        },
+        {
+            $addFields: {
+                reactions: {
+                    $arrayToObject: {
+                        $map: {
+                            input: { $setUnion: ['$reactions'] }, // Get unique emojis
+                            as: 'emoji',
+                            in: {
+                                k: '$$emoji',
+                                v: {
+                                    $size: {
+                                        $filter: {
+                                            input: '$reactions',
+                                            as: 'reaction',
+                                            cond: { $eq: ['$$reaction', '$$emoji'] },
+                                        },
+                                    },
                                 },
                             },
-                            0,
-                        ],
+                        },
                     },
                 },
             },
