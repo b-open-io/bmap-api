@@ -264,8 +264,16 @@ export async function getPosts({
                 totalLikes: { $sum: 1 },
                 reactions: {
                     $push: {
-                        emoji: '$likes.MAP.emoji',
-                        count: { $sum: 1 },
+                        $arrayElemAt: [
+                            {
+                                $filter: {
+                                    input: '$likes.MAP',
+                                    as: 'map',
+                                    cond: { $eq: ['$$map.tx', '$_id'] },
+                                },
+                            },
+                            0,
+                        ],
                     },
                 },
             },
@@ -280,7 +288,7 @@ export async function getPosts({
         },
         {
             $addFields: {
-                'post.meta.tx': '$post.tx.h', // Populate meta.tx with tx.h
+                'post.meta.tx': '$post.tx.h',
                 'post.meta.likes': '$totalLikes',
                 'post.meta.reactions': '$reactions',
                 'post.meta.replies': { $size: '$replies' },
