@@ -123,9 +123,10 @@ export async function getPost(txid: string): Promise<PostResponse> {
                     $push: {
                         $cond: [
                             { $and: [
-                                { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] },
-                                { $ne: ['$_id.emoji', ''] } // Exclude empty strings
+                                { $ne: ['$_id.emoji', null] }, // Ensure emoji is not null
+                                { $ne: ['$_id.emoji', undefined] }, // Ensure emoji is not undefined
+                                { $ne: ['$_id.emoji', ''] }, // Ensure emoji is not an empty string
+                                { $ifNull: ['$_id.emoji', false] } // Ensure emoji exists in the document
                             ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
@@ -287,7 +288,8 @@ export async function getReplies({
                             { $and: [
                                 { $ne: ['$_id.emoji', null] },
                                 { $ne: ['$_id.emoji', undefined] },
-                                { $ne: ['$_id.emoji', ''] } // Exclude empty strings
+                                { $ne: ['$_id.emoji', ''] },
+                                { $ifNull: ['$_id.emoji', false] }
                             ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
@@ -466,7 +468,8 @@ export async function getPosts({
                             { $and: [
                                 { $ne: ['$_id.emoji', null] },
                                 { $ne: ['$_id.emoji', undefined] },
-                                { $ne: ['$_id.emoji', ''] } // Exclude empty strings
+                                { $ne: ['$_id.emoji', ''] },
+                                { $ifNull: ['$_id.emoji', false] }
                             ]},
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
