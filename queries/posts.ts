@@ -46,60 +46,97 @@ export async function getPost(txid: string): Promise<PostResponse> {
     const dbo = await getDbo();
 
     const aggregationPipeline = [
-        { $match: { _id: txid } },
+        // Step 1: Match the posts we want
+        { $match: query },
+
+        // Step 2: Sort by timestamp descending (newest first)
+        { $sort: { timestamp: -1 } },
+
+        // Step 3: Pagination
+        { $skip: skip },
+        { $limit: limit },
+
+        // Step 4: Put the post in a property called "post"
+        {
+            $replaceRoot: {
+                newRoot: {
+                    post: "$$ROOT" // Store the entire document as "post"
+                }
+            }
+        },
+
+        // Step 5: Lookup to get replies
+        {
+            $lookup: {
+                from: 'post',
+                localField: 'post._id',
+                foreignField: 'MAP.tx',
+                as: 'replies',
+            },
+        },
+
+        // Step 6: Lookup to get likes
         {
             $lookup: {
                 from: 'like',
-                localField: '_id',
+                localField: 'post._id',
                 foreignField: 'MAP.tx',
                 as: 'likes',
             },
         },
-        // Count total likes first (including those without emoji)
+
+        // Step 7: Calculate total likes before unwinding
         {
             $addFields: {
-                totalLikesCount: { $size: '$likes' }
+                totalLikes: { $size: { $ifNull: ['$likes', []] } } // Count the total number of likes
             }
         },
-        // Then unwind to process emoji reactions
+
+        // Step 8: Unwind likes to process emoji reactions
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
+
+        // Step 9: Group by post ID and emoji to count reactions
         {
             $group: {
                 _id: {
-                    postId: '$_id',
-                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
+                    postId: '$post._id',
+                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
-                post: { $first: '$$ROOT' }, // Always keep the original document
-                // Count reactions only where emoji exists
-                count: { 
-                    $sum: { 
+                post: { $first: '$post' },
+                count: {
+                    $sum: {
                         $cond: [
-                            { $and: [
-                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] },
-                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, undefined] }
-                            ]}, 
-                            1, 
+                            {
+                                $and: [
+                                    { $ne: ['$likes.MAP.emoji', null] },
+                                    { $ne: ['$likes.MAP.emoji', undefined] }
+                                ]
+                            },
+                            1,
                             0
-                        ] 
-                    } 
+                        ]
+                    }
                 }
             }
         },
+
+        // Step 10: Group by post ID to consolidate reactions
         {
             $group: {
                 _id: '$_id.postId',
                 post: { $first: '$post' },
-                // Use the pre-calculated total likes count
-                totalLikes: { $first: '$post.totalLikesCount' },
+                totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 reactions: {
                     $push: {
                         $cond: [
-                            { $and: [
-                                { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] }
-                            ]},
                             {
-                                emoji: '$_id.emoji',
+                                $and: [
+                                    { $ne: ['$_id.emoji', null] },
+                                    { $ne: ['$_id.emoji', undefined] }
+                                ]
+                            },
+                            {
+                                emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
                             },
                             "$$REMOVE"
@@ -108,32 +145,14 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 }
             }
         },
-        {
-            $lookup: {
-                from: 'post',
-                localField: '_id',
-                foreignField: 'MAP.tx',
-                as: 'replies',
-            },
-        },
+
+        // Step 11: Add the meta property with replies, likes, and reactions
         {
             $addFields: {
                 meta: {
-                    tx: '$post.tx.h',
-                    likes: '$totalLikes',
-                    reactions: {
-                        $filter: {
-                            input: '$reactions',
-                            as: 'reaction',
-                            cond: { 
-                                $and: [
-                                    { $ne: ['$$reaction.emoji', null] },
-                                    { $gt: ['$$reaction.count', 0] }
-                                ]
-                            }
-                        }
-                    },
-                    replies: { $size: '$replies' }
+                    replies: { $size: { $ifNull: ['$post.replies', []] } }, // Count the number of replies
+                    likes: '$totalLikes', // Use the pre-calculated total likes count
+                    reactions: '$reactions' // Add the reactions array
                 }
             }
         }
@@ -146,7 +165,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
     }
 
     console.log('Post found:', posts[0]);
-    const {post, meta} = posts[0];
+    const { post, meta } = posts[0];
     const signerAddresses = new Set<string>();
     for (const aip of post.AIP || []) {
         if (aip.address) {
@@ -184,65 +203,102 @@ export async function getReplies({
 }: RepliesParams): Promise<PostsResponse> {
     const dbo = await getDbo();
     const skip = (page - 1) * limit;
+    const query = { "MAP.tx": txid}
 
+
+    // Start with a basic pipeline
     const aggregationPipeline = [
-        { $match: { "MAP.tx": txid, "MAP.context": "tx" } },
-        { $sort: { 'timestamp': -1 } },
+        // Step 1: Match the posts we want
+        { $match: query },
+
+        // Step 2: Sort by timestamp descending (newest first)
+        { $sort: { timestamp: -1 } },
+
+        // Step 3: Pagination
         { $skip: skip },
         { $limit: limit },
+
+        // Step 4: Put the post in a property called "post"
+        {
+            $replaceRoot: {
+                newRoot: {
+                    post: "$$ROOT" // Store the entire document as "post"
+                }
+            }
+        },
+
+        // Step 5: Lookup to get replies
+        {
+            $lookup: {
+                from: 'post',
+                localField: 'post._id',
+                foreignField: 'MAP.tx',
+                as: 'replies',
+            },
+        },
+
+        // Step 6: Lookup to get likes
         {
             $lookup: {
                 from: 'like',
-                localField: '_id',
+                localField: 'post._id',
                 foreignField: 'MAP.tx',
                 as: 'likes',
             },
         },
-        // Count total likes first (including those without emoji)
+
+        // Step 7: Calculate total likes before unwinding
         {
             $addFields: {
-                totalLikesCount: { $size: '$likes' }
+                totalLikes: { $size: { $ifNull: ['$likes', []] } } // Count the total number of likes
             }
         },
-        // Then unwind to process emoji reactions
+
+        // Step 8: Unwind likes to process emoji reactions
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
+
+        // Step 9: Group by post ID and emoji to count reactions
         {
             $group: {
                 _id: {
-                    postId: '$_id',
-                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
+                    postId: '$post._id',
+                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
-                post: { $first: '$$ROOT' }, // Always keep the original document
-                // Count reactions only where emoji exists
-                count: { 
-                    $sum: { 
+                post: { $first: '$post' },
+                count: {
+                    $sum: {
                         $cond: [
-                            { $and: [
-                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] },
-                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, undefined] }
-                            ]}, 
-                            1, 
+                            {
+                                $and: [
+                                    { $ne: ['$likes.MAP.emoji', null] },
+                                    { $ne: ['$likes.MAP.emoji', undefined] }
+                                ]
+                            },
+                            1,
                             0
-                        ] 
-                    } 
+                        ]
+                    }
                 }
             }
         },
+
+        // Step 10: Group by post ID to consolidate reactions
         {
             $group: {
                 _id: '$_id.postId',
                 post: { $first: '$post' },
-                // Use the pre-calculated total likes count
-                totalLikes: { $first: '$post.totalLikesCount' },
+                totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 reactions: {
                     $push: {
                         $cond: [
-                            { $and: [
-                                { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] }
-                            ]},
                             {
-                                emoji: '$_id.emoji',
+                                $and: [
+                                    { $ne: ['$_id.emoji', null] },
+                                    { $ne: ['$_id.emoji', undefined] }
+                                ]
+                            },
+                            {
+                                emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
                             },
                             "$$REMOVE"
@@ -251,32 +307,14 @@ export async function getReplies({
                 }
             }
         },
-        {
-            $lookup: {
-                from: 'post',
-                localField: '_id',
-                foreignField: 'MAP.tx',
-                as: 'replies',
-            },
-        },
+
+        // Step 11: Add the meta property with replies, likes, and reactions
         {
             $addFields: {
                 meta: {
-                    tx: '$post.tx.h',
-                    likes: '$totalLikes',
-                    reactions: {
-                        $filter: {
-                            input: '$reactions',
-                            as: 'reaction',
-                            cond: { 
-                                $and: [
-                                    { $ne: ['$$reaction.emoji', null] },
-                                    { $gt: ['$$reaction.count', 0] }
-                                ]
-                            }
-                        }
-                    },
-                    replies: { $size: '$replies' }
+                    replies: { $size: { $ifNull: ['$post.replies', []] } }, // Count the number of replies
+                    likes: '$totalLikes', // Use the pre-calculated total likes count
+                    reactions: '$reactions' // Add the reactions array
                 }
             }
         }
@@ -284,19 +322,21 @@ export async function getReplies({
 
     const [results, count] = await Promise.all([
         dbo.collection('post').aggregate(aggregationPipeline).toArray(),
-        dbo.collection('post').countDocuments({ "MAP.tx": txid, "MAP.context": "tx" }),
+        dbo.collection('post').countDocuments(query),
     ]);
 
+    // Get unique signer addresses
     const signerAddresses = new Set<string>();
-    for (const msg of results) {
-        if (!msg.post?.AIP) continue;
-        for (const aip of msg.post.AIP) {
+    for (const doc of results) {
+        if (!doc.post.AIP) continue;
+        for (const aip of doc.post.AIP) {
             if (aip.address) {
                 signerAddresses.add(aip.address);
             }
         }
     }
 
+    // Get BAP identities for all signers
     const signers = await getSigners([...signerAddresses]);
 
     return {
@@ -316,7 +356,7 @@ export async function getReplies({
             })) || [],
         })),
         signers,
-        meta: results.map(doc => doc.meta)
+        meta: results.map(doc => doc.meta) // We'll fill this in as we build the pipeline
     };
 }
 
@@ -345,64 +385,99 @@ export async function getPosts({
 
     console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);
 
+    // Start with a basic pipeline
     const aggregationPipeline = [
+        // Step 1: Match the posts we want
         { $match: query },
+
+        // Step 2: Sort by timestamp descending (newest first)
         { $sort: { timestamp: -1 } },
+
+        // Step 3: Pagination
         { $skip: skip },
         { $limit: limit },
+
+        // Step 4: Put the post in a property called "post"
+        {
+            $replaceRoot: {
+                newRoot: {
+                    post: "$$ROOT" // Store the entire document as "post"
+                }
+            }
+        },
+
+        // Step 5: Lookup to get replies
+        {
+            $lookup: {
+                from: 'post',
+                localField: 'post._id',
+                foreignField: 'MAP.tx',
+                as: 'replies',
+            },
+        },
+
+        // Step 6: Lookup to get likes
         {
             $lookup: {
                 from: 'like',
-                localField: '_id',
+                localField: 'post._id',
                 foreignField: 'MAP.tx',
                 as: 'likes',
             },
         },
-        // Count total likes first (including those without emoji)
+
+        // Step 7: Calculate total likes before unwinding
         {
             $addFields: {
-                totalLikesCount: { $size: '$likes' }
+                totalLikes: { $size: { $ifNull: ['$likes', []] } } // Count the total number of likes
             }
         },
-        // Then unwind to process emoji reactions
+
+        // Step 8: Unwind likes to process emoji reactions
         { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
+
+        // Step 9: Group by post ID and emoji to count reactions
         {
             $group: {
                 _id: {
-                    postId: '$_id',
-                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] }
+                    postId: '$post._id',
+                    emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
-                post: { $first: '$$ROOT' },
-                // Count reactions only where emoji exists
-                count: { 
-                    $sum: { 
+                post: { $first: '$post' },
+                count: {
+                    $sum: {
                         $cond: [
-                            { $and: [
-                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] },
-                                { $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, undefined] }
-                            ]}, 
-                            1, 
+                            {
+                                $and: [
+                                    { $ne: ['$likes.MAP.emoji', null] },
+                                    { $ne: ['$likes.MAP.emoji', undefined] }
+                                ]
+                            },
+                            1,
                             0
-                        ] 
-                    } 
+                        ]
+                    }
                 }
             }
         },
+
+        // Step 10: Group by post ID to consolidate reactions
         {
             $group: {
                 _id: '$_id.postId',
                 post: { $first: '$post' },
-                // Use the pre-calculated total likes count
-                totalLikes: { $first: '$post.totalLikesCount' },
+                totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 reactions: {
                     $push: {
                         $cond: [
-                            { $and: [
-                                { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] }
-                            ]},
                             {
-                                emoji: '$_id.emoji',
+                                $and: [
+                                    { $ne: ['$_id.emoji', null] },
+                                    { $ne: ['$_id.emoji', undefined] }
+                                ]
+                            },
+                            {
+                                emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
                             },
                             "$$REMOVE"
@@ -411,32 +486,14 @@ export async function getPosts({
                 }
             }
         },
-        {
-            $lookup: {
-                from: 'post',
-                localField: '_id',
-                foreignField: 'MAP.tx',
-                as: 'replies',
-            },
-        },
+
+        // Step 11: Add the meta property with replies, likes, and reactions
         {
             $addFields: {
                 meta: {
-                    tx: '$post.tx.h',
-                    likes: '$totalLikes',
-                    reactions: {
-                        $filter: {
-                            input: '$reactions',
-                            as: 'reaction',
-                            cond: { 
-                                $and: [
-                                    { $ne: ['$$reaction.emoji', null] },
-                                    { $gt: ['$$reaction.count', 0] }
-                                ]
-                            }
-                        }
-                    },
-                    replies: { $size: '$replies' }
+                    replies: { $size: { $ifNull: ['$post.replies', []] } }, // Count the number of replies
+                    likes: '$totalLikes', // Use the pre-calculated total likes count
+                    reactions: '$reactions' // Add the reactions array
                 }
             }
         }
@@ -450,7 +507,7 @@ export async function getPosts({
     // Get unique signer addresses
     const signerAddresses = new Set<string>();
     for (const doc of results) {
-        if (!doc.post?.AIP) continue;
+        if (!doc.post.AIP) continue;
         for (const aip of doc.post.AIP) {
             if (aip.address) {
                 signerAddresses.add(aip.address);
@@ -479,6 +536,6 @@ export async function getPosts({
             })) || [],
         })),
         signers,
-        meta: results.map(doc => doc.meta)
+        meta: results.map(doc => doc.meta) // We'll fill this in as we build the pipeline
     };
 }
