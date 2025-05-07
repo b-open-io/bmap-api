@@ -185,8 +185,8 @@ export async function getReplies({
                     postId: '$_id',
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
                 },
-                post: { $first: { $cond: [{ $eq: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, '$$ROOT', '$post'] } },
-                count: { $sum: 1 }
+                post: { $first: '$$ROOT' }, // Always keep the original document
+                count: { $sum: { $cond: [{ $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, 1, 0] } }
             }
         },
         {
@@ -197,7 +197,10 @@ export async function getReplies({
                 reactions: {
                     $push: {
                         $cond: [
-                            { $ne: ['$_id.emoji', null] },
+                            { $and: [
+                                { $ne: ['$_id.emoji', null] },
+                                { $ne: ['$_id.emoji', undefined] }
+                            ]},
                             {
                                 emoji: '$_id.emoji',
                                 count: '$count'
@@ -218,13 +221,25 @@ export async function getReplies({
         },
         {
             $addFields: {
-                'post.meta.tx': '$post.tx.h',
-                'post.meta.likes': '$totalLikes',
-                'post.meta.reactions': '$reactions',
-                'post.meta.replies': { $size: '$replies' },
-            },
-        },
-        { $replaceRoot: { newRoot: '$post' } },
+                meta: {
+                    tx: '$post.tx.h',
+                    likes: '$totalLikes',
+                    reactions: {
+                        $filter: {
+                            input: '$reactions',
+                            as: 'reaction',
+                            cond: { 
+                                $and: [
+                                    { $ne: ['$$reaction.emoji', null] },
+                                    { $gt: ['$$reaction.count', 0] }
+                                ]
+                            }
+                        }
+                    },
+                    replies: { $size: '$replies' }
+                }
+            }
+        }
     ];
 
     const [results, count] = await Promise.all([
@@ -234,8 +249,8 @@ export async function getReplies({
 
     const signerAddresses = new Set<string>();
     for (const msg of results) {
-        if (!msg.AIP) continue;
-        for (const aip of msg.AIP) {
+        if (!msg.post?.AIP) continue;
+        for (const aip of msg.post.AIP) {
             if (aip.address) {
                 signerAddresses.add(aip.address);
             }
@@ -248,21 +263,20 @@ export async function getReplies({
         page,
         limit,
         count,
-        results: results.map((msg) => ({
-            ...msg,
-            meta: undefined,
-            tx: { h: msg.tx?.h || '' },
-            blk: msg.blk || { i: 0, t: 0 },
-            timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
-            MAP: msg.MAP,
-            B: msg.B?.map((b) => ({
+        results: results.map((doc) => ({
+            ...doc.post,
+            tx: { h: doc.post.tx?.h || '' },
+            blk: doc.post.blk || { i: 0, t: 0 },
+            timestamp: doc.post.timestamp || doc.post.blk?.t || Math.floor(Date.now() / 1000),
+            MAP: doc.post.MAP,
+            B: doc.post.B?.map((b) => ({
                 encoding: b?.encoding || '',
                 content: b?.content || '',
                 "content-type": (b && b['content-type']) || '',
             })) || [],
         })),
         signers,
-        meta: results.map(result => result.meta)
+        meta: results.map(doc => doc.meta)
     };
 }
 
@@ -311,8 +325,8 @@ export async function getPosts({
                     postId: '$_id',
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract first element of emoji array
                 },
-                post: { $first: { $cond: [{ $eq: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, '$$ROOT', '$post'] } },
-                count: { $sum: 1 }
+                post: { $first: '$$ROOT' }, // Always keep the original document
+                count: { $sum: { $cond: [{ $ne: [{ $arrayElemAt: ['$likes.MAP.emoji', 0] }, null] }, 1, 0] } }
             }
         },
         {
@@ -323,7 +337,10 @@ export async function getPosts({
                 reactions: {
                     $push: {
                         $cond: [
-                            { $ne: ['$_id.emoji', null] },
+                            { $and: [
+                                { $ne: ['$_id.emoji', null] },
+                                { $ne: ['$_id.emoji', undefined] }
+                            ]},
                             {
                                 emoji: '$_id.emoji',
                                 count: '$count'
@@ -344,13 +361,25 @@ export async function getPosts({
         },
         {
             $addFields: {
-                'post.meta.tx': '$post.tx.h',
-                'post.meta.likes': '$totalLikes',
-                'post.meta.reactions': '$reactions',
-                'post.meta.replies': { $size: '$replies' },
-            },
-        },
-        { $replaceRoot: { newRoot: '$post' } },
+                meta: {
+                    tx: '$post.tx.h',
+                    likes: '$totalLikes',
+                    reactions: {
+                        $filter: {
+                            input: '$reactions',
+                            as: 'reaction',
+                            cond: { 
+                                $and: [
+                                    { $ne: ['$$reaction.emoji', null] },
+                                    { $gt: ['$$reaction.count', 0] }
+                                ]
+                            }
+                        }
+                    },
+                    replies: { $size: '$replies' }
+                }
+            }
+        }
     ];
 
     const [results, count] = await Promise.all([
@@ -360,9 +389,9 @@ export async function getPosts({
 
     // Get unique signer addresses
     const signerAddresses = new Set<string>();
-    for (const msg of results) {
-        if (!msg.AIP) continue;
-        for (const aip of msg.AIP) {
+    for (const doc of results) {
+        if (!doc.post?.AIP) continue;
+        for (const aip of doc.post.AIP) {
             if (aip.address) {
                 signerAddresses.add(aip.address);
             }
@@ -377,20 +406,19 @@ export async function getPosts({
         page,
         limit,
         count,
-        results: results.map((msg) => ({
-            ...msg,
-            meta: undefined,
-            tx: { h: msg.tx?.h || '' },
-            blk: msg.blk || { i: 0, t: 0 },
-            timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
-            MAP: msg.MAP,
-            B: msg.B?.map((b) => ({
+        results: results.map((doc) => ({
+            ...doc.post,
+            tx: { h: doc.post.tx?.h || '' },
+            blk: doc.post.blk || { i: 0, t: 0 },
+            timestamp: doc.post.timestamp || doc.post.blk?.t || Math.floor(Date.now() / 1000),
+            MAP: doc.post.MAP,
+            B: doc.post.B?.map((b) => ({
                 encoding: b?.encoding || '',
                 content: b?.content || '',
                 "content-type": (b && b['content-type']) || '',
             })) || [],
         })),
         signers,
-        meta: results.map(result => result.meta)
+        meta: results.map(doc => doc.meta)
     };
 }
