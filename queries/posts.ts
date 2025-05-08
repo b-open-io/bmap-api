@@ -367,10 +367,13 @@ export async function getPosts({
     const dbo = await getDbo();
     const skip = (page - 1) * limit;
 
-    const query = {
-        "MAP.tx": null,
-        "AIP.address": undefined as undefined | string | { $in: string[] }
+    const query: {
+        "MAP.tx": null;
+        "AIP.address"?: string | { $in: string[] };
+    } = {
+        "MAP.tx": null
     };
+
     if (address) {
         query['AIP.address'] = address;
     } else if (bapId) {
