@@ -369,7 +369,7 @@ export async function getPosts({
 
     const query = {
         "MAP.tx": null,
-        "AIP.address": undefined as undefined | string | { $in: string[] };
+        "AIP.address": undefined as undefined | string | { $in: string[] }
     };
     if (address) {
         query['AIP.address'] = address;
