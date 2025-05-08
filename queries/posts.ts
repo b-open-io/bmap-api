@@ -260,7 +260,7 @@ export async function getReplies({
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
                 post: { $first: '$post' },
-                replies: { $first: '$post.replies' }, // Preserve the replies field
+                replies: { $first: '$replies' }, // Preserve the replies field
                 totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 count: {
                     $sum: {
@@ -367,9 +367,10 @@ export async function getPosts({
     const dbo = await getDbo();
     const skip = (page - 1) * limit;
 
-    const query: {
-        "AIP.address"?: string | { $in: string[] };
-    } = {};
+    const query = {
+        "MAP.tx": null,
+        "AIP.address": undefined as undefined | string | { $in: string[] };
+    };
     if (address) {
         query['AIP.address'] = address;
     } else if (bapId) {
@@ -442,7 +443,7 @@ export async function getPosts({
                     emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] } // Extract the first element of the emoji array
                 },
                 post: { $first: '$post' },
-                replies: { $first: '$post.replies' }, // Preserve the replies field
+                replies: { $first: '$replies' }, // Preserve the replies field
                 totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
                 count: {
                     $sum: {
