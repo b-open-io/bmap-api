@@ -504,10 +504,12 @@ export async function getPosts({
         }
     ];
 
-    const [results, count] = await Promise.all([
-        dbo.collection('post').aggregate(aggregationPipeline).toArray(),
-        dbo.collection('post').countDocuments(query),
-    ]);
+    // const [results, count] = await Promise.all([
+    //     dbo.collection('post').aggregate(aggregationPipeline).toArray(),
+    //     dbo.collection('post').countDocuments(query),
+    // ]);
+
+    const results = await dbo.collection('post').aggregate(aggregationPipeline).toArray()
 
     // Get unique signer addresses
     const signerAddresses = new Set<string>();
@@ -527,7 +529,7 @@ export async function getPosts({
         bapID: bapId,
         page,
         limit,
-        count,
+        count: results.length,
         results: results.map((doc) => ({
             ...doc.post,
             tx: { h: doc.post.tx?.h || '' },
