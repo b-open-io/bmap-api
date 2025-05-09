@@ -1,5 +1,5 @@
 import type { BmapTx } from 'bmapjs';
-import { getBAPAddresses, getBAPIdByAddress, getSigners, type BapIdentity } from '../bap.js';
+import { getBAPIdentites, getSigners, type BapIdentity } from '../bap.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
 
@@ -384,17 +384,35 @@ export async function getPosts({
         "MAP.tx": null
     };
 
+    let follows: Map<string, BapIdentity> | undefined;
     if (address) {
         query['AIP.address'] = address;
     } else if (bapId) {
-
         if (feed) {
-            const addresses = await getFollowerAddresses(bapId);
-            if (addresses.length) {
-                query['AIP.address'] = { $in: addresses };
-            // } else {
-            //     console.log('No addresses found for BAP ID:', bapId);
-            //     throw new Error('No addresses found for BAP ID');
+            const following = await getFollows(bapId);
+            if (!following?.length) {
+                return {
+                    bapID: bapId,
+                    page,
+                    limit,
+                    count: 0,
+                    results: [],
+                    signers: [],
+                    meta: []
+                }
+            }
+            follows = new Map<string, BapIdentity>();
+            const addresses = new Set<string>();
+            for (const f of following) {
+                for (const a of f.addresses) {
+                    if (a.address) {
+                        follows.set(a.address, f);
+                        addresses.add(a.address);
+                    }
+                }
+            }
+            if (addresses.size) {
+                query['AIP.address'] = { $in: [...addresses] };
             }
         } else {
             const identity = await fetchBapIdentityData(bapId);
@@ -535,20 +553,32 @@ export async function getPosts({
     // ]);
 
     const results = await dbo.collection('post').aggregate(aggregationPipeline).toArray()
-
-    // Get unique signer addresses
+    let signers: BapIdentity[] = [];
     const signerAddresses = new Set<string>();
-    for (const doc of results) {
-        if (!doc.post.AIP) continue;
-        for (const aip of doc.post.AIP) {
-            if (aip.address) {
-                signerAddresses.add(aip.address);
+    if (feed && bapId && follows) {
+        for (const doc of results) {
+            if (!doc.post.AIP) continue;
+            for (const aip of doc.post.AIP) {
+                if (aip.address && follows.has(aip.address) && !signerAddresses.has(aip.address)) {
+                    signers.push(follows.get(aip.address));
+                    signerAddresses.add(aip.address);
+                }
             }
         }
+    } else {
+        // Get unique signer addresses
+        for (const doc of results) {
+            if (!doc.post.AIP) continue;
+            for (const aip of doc.post.AIP) {
+                if (aip.address) {
+                    signerAddresses.add(aip.address);
+                }
+            }
+        }
+        // Get BAP identities for all signers
+        signers = await getSigners([...signerAddresses]);
     }
 
-    // Get BAP identities for all signers
-    const signers = await getSigners([...signerAddresses]);
 
     return {
         bapID: bapId,
@@ -572,7 +602,7 @@ export async function getPosts({
     };
 }
 
-async function getFollowerAddresses(bapId: string): Promise<string[]> {
+async function getFollows(bapId: string) {
     const dbo = await getDbo();
     const identity = await fetchBapIdentityData(bapId);
     if (!identity?.currentAddress) {
@@ -629,7 +659,6 @@ async function getFollowerAddresses(bapId: string): Promise<string[]> {
         }
     }
 
-    const followedIdKeys: string[] = [...followMap.keys()];
 
-    return getBAPAddresses(followedIdKeys);
+    return getBAPIdentites([...followMap.keys()]);
 }

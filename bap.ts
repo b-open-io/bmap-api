@@ -111,7 +111,7 @@ export const getBAPAddresses = async (idKeys: string[]) => {
   try {
     const db = await getBAPDbo();
     const identities = await db.collection("identities")
-      .find({ _id: { $in: idKeys } } as any, { projection: { addresses: {address: 1} } })
+      .find({ _id: { $in: idKeys } } as any, { projection: { addresses: { address: 1 } } })
       .toArray()
 
     console.log({ idKeys, identitiels: identities });
@@ -125,6 +125,31 @@ export const getBAPAddresses = async (idKeys: string[]) => {
       }
     }
     return Array.from(addresses);
+  } catch (e) {
+    console.log(e);
+    throw e;
+  }
+}
+
+export const getBAPIdentites = async (idKeys: string[]) => {
+  try {
+    const db = await getBAPDbo();
+    const identities = await db.collection("identities")
+      .find({ _id: { $in: idKeys } } as any, { projection: { addresses: { address: 1 } } })
+      .toArray()
+
+    console.log({ idKeys, identitiels: identities });
+    return identities.map((s) => ({
+      idKey: s._id.toString(),
+      rootAddress: s.rootAddress,
+      currentAddress: s.currentAddress,
+      addresses: s.addresses,
+      block: s.block || 0,
+      timestamp: s.timestamp || 0,
+      valid: s.valid,
+      identityTxId: s.identityTxId || '',
+      identity: s.profile,
+    }))
   } catch (e) {
     console.log(e);
     throw e;
