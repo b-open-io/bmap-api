@@ -237,6 +237,94 @@ export const socialRoutes = new Elysia()
       detail: channelMessagesEndpointDetail,
     }
   )
+    .get(
+    "/autofill", 
+    async ({ query }) => {
+      try {
+        const { q } = query;
+        if (!q) {
+          throw new Error('q param is required');
+        }
+
+        const cached = await client.hGet("autofill", q);
+        if (cached) {
+          console.log('Cache hit for autofill:', q);
+          return {
+            status: "OK",
+            result: JSON.parse(cached),
+          };
+        }
+        const [identites, posts] = await Promise.all([
+          searchIdentities({q, limit: 3, offset: 0}),
+          searchPosts({q, limit: 10, offset: 0}),
+        ]);
+
+        const result = {
+          identities: identites,
+          posts: posts,
+        };
+        client.hSet("autofill", q, JSON.stringify(result));
+        client.hExpire("autofill", q, 15 * 60); // 15 minutes
+        return {
+          status: "OK",
+          result: result,
+        };
+      } catch (error: unknown) {
+        console.error('Error fetching autofill data:', error);
+        throw new Error('Failed to fetch autofill data');
+      }
+    }
+  )
+  .get(
+    "/identity/search", 
+    async ({ query }) => {
+      try {
+        const { q, limit, offset } = query;
+        if (!q) {
+          throw new Error('q param is required');
+        };
+
+        const results = await searchIdentities({
+          q,
+          limit: limit ? Number.parseInt(limit, 10) : 100,
+          offset: offset ? Number.parseInt(offset, 10) : 0,
+        });
+
+        return {
+          status: "OK",
+          result: results,
+        };
+      } catch (error: unknown) {
+        console.error('Error fetching autofill data:', error);
+        throw new Error('Failed to fetch autofill data');
+      }
+    }
+  )
+  .get(
+    "/post/search", 
+    async ({ query }) => {
+      try {
+        const { q, limit, offset } = query;
+        if (!q) {
+          throw new Error('q param is required');
+        };
+
+        const results = await searchPosts({
+          q,
+          limit: limit ? Number.parseInt(limit, 10) : 100,
+          offset: offset ? Number.parseInt(offset, 10) : 0,
+        });
+
+        return {
+          status: "OK",
+          result: results,
+        };
+      } catch (error: unknown) {
+        console.error('Error fetching autofill data:', error);
+        throw new Error('Failed to fetch autofill data');
+      }
+    }
+  )
   .get('/feed/:bapId?', async ({ set, query, params }) => {
     try {
       const postQuery = {
@@ -552,94 +640,6 @@ export const socialRoutes = new Elysia()
       query: MessageQuery,
       response: DMResponseSchema,
       detail: directMessagesWithTargetEndpointDetail,
-    }
-  )
-  .get(
-    "/autofill", 
-    async ({ query }) => {
-      try {
-        const { q } = query;
-        if (!q) {
-          throw new Error('q param is required');
-        }
-
-        const cached = await client.hGet("autofill", q);
-        if (cached) {
-          console.log('Cache hit for autofill:', q);
-          return {
-            status: "OK",
-            result: JSON.parse(cached),
-          };
-        }
-        const [identites, posts] = await Promise.all([
-          searchIdentities({q, limit: 3, offset: 0}),
-          searchPosts({q, limit: 10, offset: 0}),
-        ]);
-
-        const result = {
-          identities: identites,
-          posts: posts,
-        };
-        client.hSet("autofill", q, JSON.stringify(result));
-        client.hExpire("autofill", q, 15 * 60); // 15 minutes
-        return {
-          status: "OK",
-          result: result,
-        };
-      } catch (error: unknown) {
-        console.error('Error fetching autofill data:', error);
-        throw new Error('Failed to fetch autofill data');
-      }
-    }
-  )
-  .get(
-    "/identity/search", 
-    async ({ query }) => {
-      try {
-        const { q, limit, offset } = query;
-        if (!q) {
-          throw new Error('q param is required');
-        };
-
-        const results = await searchIdentities({
-          q,
-          limit: limit ? Number.parseInt(limit, 10) : 100,
-          offset: offset ? Number.parseInt(offset, 10) : 0,
-        });
-
-        return {
-          status: "OK",
-          result: results,
-        };
-      } catch (error: unknown) {
-        console.error('Error fetching autofill data:', error);
-        throw new Error('Failed to fetch autofill data');
-      }
-    }
-  )
-  .get(
-    "/post/search", 
-    async ({ query }) => {
-      try {
-        const { q, limit, offset } = query;
-        if (!q) {
-          throw new Error('q param is required');
-        };
-
-        const results = await searchPosts({
-          q,
-          limit: limit ? Number.parseInt(limit, 10) : 100,
-          offset: offset ? Number.parseInt(offset, 10) : 0,
-        });
-
-        return {
-          status: "OK",
-          result: results,
-        };
-      } catch (error: unknown) {
-        console.error('Error fetching autofill data:', error);
-        throw new Error('Failed to fetch autofill data');
-      }
     }
   )
   .ws('/@/:bapId/messages/:targetBapId/listen', {
