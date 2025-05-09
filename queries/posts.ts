@@ -2,6 +2,7 @@ import type { BmapTx } from 'bmapjs';
 import { getBAPIdentites, getSigners, type BapIdentity } from '../bap.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
+import { SearchParams } from '../social/queries/types.js';
 
 export interface PostsParams {
     bapId?: string;
@@ -661,4 +662,31 @@ async function getFollows(bapId: string) {
 
 
     return getBAPIdentites([...followMap.keys()]);
+}
+
+export async function searchPosts({ q, limit = 10, offset = 0 }: SearchParams): Promise<BmapTx[]> {
+    try {
+        const db = await getDbo();
+        const results = await db.collection("posts").aggregate([
+            { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
+            { $skip: offset },
+            { $limit: limit },
+        ]).toArray();
+
+        return results.map((doc) => ({
+            ...doc.post,
+            tx: { h: doc.post.tx?.h || '' },
+            blk: doc.post.blk || { i: 0, t: 0 },
+            timestamp: doc.post.timestamp || doc.post.blk?.t || Math.floor(Date.now() / 1000),
+            MAP: doc.post.MAP,
+            B: doc.post.B?.map((b) => ({
+                encoding: b?.encoding || '',
+                content: b?.content || '',
+                "content-type": (b && b['content-type']) || '',
+            })) || [],
+        }))
+    } catch (e) {
+        console.log(e);
+        throw e;
+    }
 }

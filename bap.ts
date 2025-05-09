@@ -2,6 +2,7 @@ import type { BmapTx } from 'bmapjs';
 import _ from 'lodash';
 import { type CacheValue, readFromRedis, saveToRedis } from './cache.js';
 import { getBAPDbo } from './db.js';
+import { SearchParams } from './social/queries/types.js';
 const { uniq, uniqBy } = _;
 
 interface BapAddress {
@@ -204,3 +205,29 @@ export const resolveSigners = async (txs: BmapTx[]) => {
   );
   return uniqBy(signerLists.flat(), (b) => b.idKey);
 };
+
+export async function searchIdentities({ q, limit = 10, offset = 3 }: SearchParams): Promise<BapIdentity[]> {
+  try {
+    const db = await getBAPDbo();
+    const identities = await db.collection("identities").aggregate([
+      { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
+      { $skip: offset },
+      { $limit: limit },
+    ]).toArray();
+
+    return identities.map((s) => ({
+      idKey: s._id.toString(),
+      rootAddress: s.rootAddress,
+      currentAddress: s.currentAddress,
+      addresses: s.addresses,
+      block: s.block || 0,
+      timestamp: s.timestamp || 0,
+      valid: s.valid,
+      identityTxId: s.identityTxId || '',
+      identity: s.profile,
+    }))
+  } catch (e) {
+    console.log(e);
+    throw e;
+  }
+}
