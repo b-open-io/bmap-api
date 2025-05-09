@@ -135,7 +135,7 @@ export const getBAPIdentites = async (idKeys: string[]) => {
   try {
     const db = await getBAPDbo();
     const identities = await db.collection("identities")
-      .find({ _id: { $in: idKeys } } as any, { projection: { addresses: { address: 1 } } })
+      .find({ _id: { $in: idKeys } } as any)
       .toArray()
 
     console.log({ idKeys, identitiels: identities });
