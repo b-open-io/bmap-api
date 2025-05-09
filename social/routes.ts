@@ -243,6 +243,7 @@ export const socialRoutes = new Elysia()
         bapId: params.bapId,
         page: query.page ? Number.parseInt(query.page, 10) : 1,
         limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+        feed: true,
       }
       return getPosts(postQuery);
     } catch (error: unknown) {

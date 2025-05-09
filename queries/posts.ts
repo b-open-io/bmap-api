@@ -1,10 +1,11 @@
 import type { BmapTx } from 'bmapjs';
-import { getBAPIdByAddress, getSigners, type BapIdentity } from '../bap.js';
+import { getBAPAddresses, getBAPIdByAddress, getSigners, type BapIdentity } from '../bap.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
 
 export interface PostsParams {
     bapId?: string;
+    feed?: boolean
     address?: string;
     page: number;
     limit: number;
@@ -101,11 +102,13 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 count: {
                     $sum: {
                         $cond: [
-                            { $and: [
-                                { $ne: ['$likes.MAP.emoji', null] },
-                                { $ne: ['$likes.MAP.emoji', undefined] },
-                                { $ne: ['$likes.MAP.emoji', ''] } // Exclude empty strings
-                            ]},
+                            {
+                                $and: [
+                                    { $ne: ['$likes.MAP.emoji', null] },
+                                    { $ne: ['$likes.MAP.emoji', undefined] },
+                                    { $ne: ['$likes.MAP.emoji', ''] } // Exclude empty strings
+                                ]
+                            },
                             1,
                             0
                         ]
@@ -124,12 +127,14 @@ export async function getPost(txid: string): Promise<PostResponse> {
                 reactions: {
                     $push: {
                         $cond: [
-                            { $and: [
-                                { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] },
-                                { $ne: ['$_id.emoji', ''] },
-                                { $ifNull: ['$_id.emoji', false] }
-                            ]},
+                            {
+                                $and: [
+                                    { $ne: ['$_id.emoji', null] },
+                                    { $ne: ['$_id.emoji', undefined] },
+                                    { $ne: ['$_id.emoji', ''] },
+                                    { $ifNull: ['$_id.emoji', false] }
+                                ]
+                            },
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
@@ -265,11 +270,13 @@ export async function getReplies({
                 count: {
                     $sum: {
                         $cond: [
-                            { $and: [
-                                { $ne: ['$likes.MAP.emoji', null] },
-                                { $ne: ['$likes.MAP.emoji', undefined] },
-                                { $ne: ['$likes.MAP.emoji', ''] } // Exclude empty strings
-                            ]},
+                            {
+                                $and: [
+                                    { $ne: ['$likes.MAP.emoji', null] },
+                                    { $ne: ['$likes.MAP.emoji', undefined] },
+                                    { $ne: ['$likes.MAP.emoji', ''] } // Exclude empty strings
+                                ]
+                            },
                             1,
                             0
                         ]
@@ -288,12 +295,14 @@ export async function getReplies({
                 reactions: {
                     $push: {
                         $cond: [
-                            { $and: [
-                                { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] },
-                                { $ne: ['$_id.emoji', ''] },
-                                { $ifNull: ['$_id.emoji', false] }
-                            ]},
+                            {
+                                $and: [
+                                    { $ne: ['$_id.emoji', null] },
+                                    { $ne: ['$_id.emoji', undefined] },
+                                    { $ne: ['$_id.emoji', ''] },
+                                    { $ifNull: ['$_id.emoji', false] }
+                                ]
+                            },
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
@@ -361,6 +370,7 @@ export async function getReplies({
 export async function getPosts({
     bapId,
     address,
+    feed = false,
     page = 1,
     limit = 100,
 }: PostsParams): Promise<PostsResponse> {
@@ -377,12 +387,23 @@ export async function getPosts({
     if (address) {
         query['AIP.address'] = address;
     } else if (bapId) {
-        const identity = await fetchBapIdentityData(bapId);
-        if (!identity?.currentAddress) {
-            console.log('No current address found for BAP ID:', bapId, identity);
-            throw new Error('Invalid BAP identity data');
+
+        if (feed) {
+            const addresses = await getFollowerAddresses(bapId);
+            if (addresses.length) {
+                query['AIP.address'] = { $in: addresses };
+            // } else {
+            //     console.log('No addresses found for BAP ID:', bapId);
+            //     throw new Error('No addresses found for BAP ID');
+            }
+        } else {
+            const identity = await fetchBapIdentityData(bapId);
+            if (!identity?.currentAddress) {
+                console.log('No current address found for BAP ID:', bapId, identity);
+                throw new Error('Invalid BAP identity data');
+            }
+            query['AIP.address'] = { $in: identity.addresses.map(a => a.address) };
         }
-        query['AIP.address'] = { $in: identity.addresses.map(a => a.address) };
     }
 
     console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);
@@ -451,11 +472,13 @@ export async function getPosts({
                 count: {
                     $sum: {
                         $cond: [
-                            { $and: [
-                                { $ne: ['$likes.MAP.emoji', null] },
-                                { $ne: ['$likes.MAP.emoji', undefined] },
-                                { $ne: ['$likes.MAP.emoji', ''] } // Exclude empty strings
-                            ]},
+                            {
+                                $and: [
+                                    { $ne: ['$likes.MAP.emoji', null] },
+                                    { $ne: ['$likes.MAP.emoji', undefined] },
+                                    { $ne: ['$likes.MAP.emoji', ''] } // Exclude empty strings
+                                ]
+                            },
                             1,
                             0
                         ]
@@ -474,12 +497,14 @@ export async function getPosts({
                 reactions: {
                     $push: {
                         $cond: [
-                            { $and: [
-                                { $ne: ['$_id.emoji', null] },
-                                { $ne: ['$_id.emoji', undefined] },
-                                { $ne: ['$_id.emoji', ''] },
-                                { $ifNull: ['$_id.emoji', false] }
-                            ]},
+                            {
+                                $and: [
+                                    { $ne: ['$_id.emoji', null] },
+                                    { $ne: ['$_id.emoji', undefined] },
+                                    { $ne: ['$_id.emoji', ''] },
+                                    { $ifNull: ['$_id.emoji', false] }
+                                ]
+                            },
                             {
                                 emoji: '$_id.emoji', // Use the flattened emoji value
                                 count: '$count'
@@ -545,4 +570,66 @@ export async function getPosts({
         signers,
         meta: results.map(doc => doc.meta) // We'll fill this in as we build the pipeline
     };
+}
+
+async function getFollowerAddresses(bapId: string): Promise<string[]> {
+    const dbo = await getDbo();
+    const identity = await fetchBapIdentityData(bapId);
+    if (!identity?.currentAddress) {
+        console.log('No current address found for BAP ID:', bapId, identity);
+        throw new Error('Invalid BAP identity data');
+    }
+
+    const userAddresses = identity.addresses.map(a => a.address);
+
+    const follows = await dbo.collection('follow').find({
+        "AIP.address": { $in: userAddresses },
+    }, {
+        sort: [["AIP.address", 1], ["blk.i", 1]],
+        projection: {
+            "blk.i": 1,
+            "MAP.idKey": 1,
+        }
+    }).toArray();
+
+    const unfollows = await dbo.collection('unfollow').find({
+        "AIP.address": { $in: userAddresses },
+    }, {
+        sort: [["AIP.address", 1], ["blk.i", 1]],
+        projection: {
+            "blk.i": 1,
+            "MAP.idKey": 1,
+        }
+    }).toArray();
+
+    const followMap = new Map<string, number>();
+
+    // Process follows
+    for (const follow of follows) {
+        const idKey = follow.MAP?.find(m => m.idKey)?.idKey;
+        const blockIndex = follow.blk?.i;
+
+        if (idKey && typeof blockIndex === 'number') {
+            followMap.set(idKey, blockIndex);
+        }
+    }
+
+    // Process unfollows
+    for (const unfollow of unfollows) {
+        const idKey = unfollow.MAP?.find(m => m.idKey)?.idKey;
+        const blockIndex = unfollow.blk?.i;
+
+        if (idKey && typeof blockIndex === 'number') {
+            if (followMap.has(idKey)) {
+                ;
+                if (blockIndex > followMap.get(idKey)) {
+                    followMap.delete(idKey);
+                }
+            }
+        }
+    }
+
+    const followedIdKeys: string[] = [...followMap.keys()];
+
+    return getBAPAddresses(followedIdKeys);
 }

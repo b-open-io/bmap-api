@@ -86,7 +86,7 @@ export const getSigners = async (addresses: string[]) => {
   try {
     const db = await getBAPDbo();
     const identities = await db.collection("identities")
-      .find({"addresses.address": {$in: addresses}})
+      .find({ "addresses.address": { $in: addresses } })
       .toArray()
 
     console.log({ addresses, identitiels: identities });
@@ -100,40 +100,36 @@ export const getSigners = async (addresses: string[]) => {
       valid: s.valid,
       identityTxId: s.identityTxId || '',
       identity: s.profile,
-  }))
-    // const payload: Payload = {
-    //   address,
-    // };
-    // if (block) {
-    //   payload.block = block;
-    // }
-    // if (timestamp) {
-    //   payload.timestamp = timestamp;
-    // }
-    // console.log('payload', payload);
-    // const result = await fetch(`${bapApiUrl}identity/validByAddress`, {
-    //   method: 'POST',
-    //   headers: {
-    //     Accept: 'application/json',
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify(payload),
-    // });
-    // const data = await result.json();
-    // console.log('identity data', { data });
-    // if (data && data.status === 'OK' && data.result) {
-    //   try {
-    //     return data.result.identity;
-    //   } catch (e) {
-    //     console.log('Failed to parse BAP identity', e, data.result);
-    //   }
-    // }
-    // return undefined;
+    }))
   } catch (e) {
     console.log(e);
     throw e;
   }
 };
+
+export const getBAPAddresses = async (idKeys: string[]) => {
+  try {
+    const db = await getBAPDbo();
+    const identities = await db.collection("identities")
+      .find({ _id: { $in: idKeys } } as any, { projection: { addresses: {address: 1} } })
+      .toArray()
+
+    console.log({ idKeys, identitiels: identities });
+
+    const addresses = new Set<string>();
+    for (const identity of identities) {
+      for (const address of identity.addresses) {
+        if (address.address) {
+          addresses.add(address.address);
+        }
+      }
+    }
+    return Array.from(addresses);
+  } catch (e) {
+    console.log(e);
+    throw e;
+  }
+}
 
 // This function takes an array of transactions and resolves their signers from AIP and SIGMA
 export const resolveSigners = async (txs: BmapTx[]) => {
