@@ -240,6 +240,7 @@ export const socialRoutes = new Elysia()
     .get(
     "/autofill", 
     async ({ query }) => {
+      console.log('=== Starting /autofill request ===');
       try {
         const { q } = query;
         if (!q) {
@@ -278,6 +279,7 @@ export const socialRoutes = new Elysia()
   .get(
     "/identity/search", 
     async ({ query }) => {
+      console.log('=== Starting /identity/search request ===');
       try {
         const { q, limit, offset } = query;
         if (!q) {
@@ -303,6 +305,7 @@ export const socialRoutes = new Elysia()
   .get(
     "/post/search", 
     async ({ query }) => {
+      console.log('=== Starting /post/search request ===');
       try {
         const { q, limit, offset } = query;
         if (!q) {
@@ -346,6 +349,7 @@ export const socialRoutes = new Elysia()
     query: PostQuery,
   })
   .get('/post/:txid', async ({ set, params }) => {
+    console.log('=== Starting /post/:txid request ===');
     try {
       return getPost(params.txid);
     } catch (error: unknown) {
@@ -360,6 +364,7 @@ export const socialRoutes = new Elysia()
     query: PostQuery,
   })
   .get('/post/:txid/reply', async ({ set, query, params }) => {
+    console.log('=== Starting /post/:txid/reply request ===');
     try {
       const repliesQuery = {
         txid: params.txid,
@@ -379,6 +384,7 @@ export const socialRoutes = new Elysia()
     query: PostQuery,
   })
   .get('/post/:txid/like', async ({ set, query, params }) => {
+    console.log('=== Starting /post/:txid/like request ===');
     try {
       const repliesQuery = {
         txid: params.txid,
@@ -398,6 +404,7 @@ export const socialRoutes = new Elysia()
     query: PostQuery,
   })
   .get('/post/address/:address', async ({ set, query, params }) => {
+    console.log('=== Starting /post/address/:address request ===');
     try {
       const postQuery = {
         address: params.address,
@@ -417,6 +424,7 @@ export const socialRoutes = new Elysia()
     query: PostQuery,
   })
   .get('/post/bap/:bapId', async ({ set, query, params }) => {
+    console.log('=== Starting /post/bap/:bapId request ===');
     try {
       const postQuery = {
         bapId: params.bapId,
@@ -436,6 +444,7 @@ export const socialRoutes = new Elysia()
     query: PostQuery,
   })
   .get('/bap/:bapId/like', async ({ set, query, params }) => {
+    console.log('=== Starting /bap/:bapId/like request ===');
     try {
       const repliesQuery = {
         bapId: params.bapId,

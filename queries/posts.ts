@@ -667,11 +667,12 @@ async function getFollows(bapId: string) {
 export async function searchPosts({ q, limit = 10, offset = 0 }: SearchParams): Promise<BmapTx[]> {
     try {
         const db = await getDbo();
-        const results = await db.collection("posts").aggregate([
+        const pipeline = [
             { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
             { $skip: offset },
             { $limit: limit },
-        ]).toArray();
+        ]
+        const results = await db.collection("post").aggregate(pipeline).toArray();
 
         return results.map((doc) => ({
             ...doc.post,

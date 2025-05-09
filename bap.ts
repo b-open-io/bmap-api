@@ -209,11 +209,12 @@ export const resolveSigners = async (txs: BmapTx[]) => {
 export async function searchIdentities({ q, limit = 10, offset = 3 }: SearchParams): Promise<BapIdentity[]> {
   try {
     const db = await getBAPDbo();
-    const identities = await db.collection("identities").aggregate([
+    const pipeline = [
       { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
       { $skip: offset },
       { $limit: limit },
-    ]).toArray();
+    ]
+    const identities = await db.collection("identities").aggregate(pipeline).toArray();
 
     return identities.map((s) => ({
       idKey: s._id.toString(),
