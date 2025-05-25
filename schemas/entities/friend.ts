@@ -2,7 +2,7 @@
 
 export interface RelationshipState {
   bapId: string;
-  MAP: any;
+  MAP: Record<string, unknown>;
 }
 
 export interface FriendRequest {

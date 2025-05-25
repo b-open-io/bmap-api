@@ -8,10 +8,10 @@ export function sigmaIdentityToBapIdentity(result: SigmaIdentityResult): BapIden
     idKey: result.idKey,
     rootAddress: result.rootAddress || '',
     currentAddress: result.currentAddress || '',
-    addresses: result.addresses.map(addr => ({ 
-      address: addr, 
-      txId: '', 
-      block: result.block 
+    addresses: result.addresses.map((addr) => ({
+      address: addr,
+      txId: '',
+      block: result.block,
     })),
     identity: result.identity,
     identityTxId: result.identityTxId || '',

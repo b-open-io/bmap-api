@@ -12,7 +12,7 @@ import type { BmapTx, BobTx } from 'bmapjs';
 import bmapjs from 'bmapjs';
 import { parse } from 'bpu-ts';
 
-import './logger.js';  // Initialize logger first
+import './logger.js'; // Initialize logger first
 import './p2p.js';
 import { type BapIdentity, getBAPIdByAddress, resolveSigners } from './bap.js';
 import {

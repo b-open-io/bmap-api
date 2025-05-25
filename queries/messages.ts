@@ -74,7 +74,7 @@ export async function getDirectMessages({
         'MAP.bapID': bapId,
       };
 
-  const [results, count] = await Promise.all([
+  const [results, _count] = await Promise.all([
     dbo.collection('message').find(query).sort({ 'blk.t': -1 }).skip(skip).limit(limit).toArray(),
     dbo.collection('message').countDocuments(query),
   ]);
@@ -91,7 +91,7 @@ export async function getDirectMessages({
   }
 
   // Get BAP identities for all signers
-  const signers = await getSigners([...signerAddresses])
+  const signers = await getSigners([...signerAddresses]);
 
   return {
     messages: results.map((msg) => ({

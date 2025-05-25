@@ -5,7 +5,14 @@ import type { BapIdentity } from './bap.js';
 import type { TimeSeriesData } from './chart.js';
 import { getCurrentBlockHeight } from './db.js';
 // Import social types from consolidated schemas
-import type { ChannelInfo, Friend, LikeInfo, Reactions, ChannelMessageResponse, DMResponse } from './social/schemas.js';
+import type {
+  ChannelInfo,
+  ChannelMessageResponse,
+  DMResponse,
+  Friend,
+  LikeInfo,
+  Reactions,
+} from './social/schemas.js';
 
 const client = redis.createClient({
   url: process.env.REDIS_PRIVATE_URL,

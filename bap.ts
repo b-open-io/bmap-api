@@ -86,9 +86,10 @@ export const getBAPIdByAddress = async (
 export const getSigners = async (addresses: string[]) => {
   try {
     const db = await getBAPDbo();
-    const identities = await db.collection("identities")
-      .find({ "addresses.address": { $in: addresses } })
-      .toArray()
+    const identities = await db
+      .collection('identities')
+      .find({ 'addresses.address': { $in: addresses } })
+      .toArray();
 
     console.log({ addresses, identitiels: identities });
     return identities.map((s) => ({
@@ -101,7 +102,7 @@ export const getSigners = async (addresses: string[]) => {
       valid: s.valid,
       identityTxId: s.identityTxId || '',
       identity: s.profile,
-    }))
+    }));
   } catch (e) {
     console.log(e);
     throw e;
@@ -111,9 +112,10 @@ export const getSigners = async (addresses: string[]) => {
 export const getBAPAddresses = async (idKeys: string[]) => {
   try {
     const db = await getBAPDbo();
-    const identities = await db.collection("identities")
+    const identities = await db
+      .collection('identities')
       .find({ _id: { $in: idKeys } } as any, { projection: { addresses: { address: 1 } } })
-      .toArray()
+      .toArray();
 
     console.log({ idKeys, identitiels: identities });
 
@@ -130,14 +132,15 @@ export const getBAPAddresses = async (idKeys: string[]) => {
     console.log(e);
     throw e;
   }
-}
+};
 
 export const getBAPIdentites = async (idKeys: string[]) => {
   try {
     const db = await getBAPDbo();
-    const identities = await db.collection("identities")
+    const identities = await db
+      .collection('identities')
       .find({ _id: { $in: idKeys } } as any)
-      .toArray()
+      .toArray();
 
     console.log({ idKeys, identitiels: identities });
     return identities.map((s) => ({
@@ -150,12 +153,12 @@ export const getBAPIdentites = async (idKeys: string[]) => {
       valid: s.valid,
       identityTxId: s.identityTxId || '',
       identity: s.profile,
-    }))
+    }));
   } catch (e) {
     console.log(e);
     throw e;
   }
-}
+};
 
 // This function takes an array of transactions and resolves their signers from AIP and SIGMA
 export const resolveSigners = async (txs: BmapTx[]) => {
@@ -206,15 +209,19 @@ export const resolveSigners = async (txs: BmapTx[]) => {
   return uniqBy(signerLists.flat(), (b) => b.idKey);
 };
 
-export async function searchIdentities({ q, limit = 10, offset = 3 }: SearchParams): Promise<BapIdentity[]> {
+export async function searchIdentities({
+  q,
+  limit = 10,
+  offset = 3,
+}: SearchParams): Promise<BapIdentity[]> {
   try {
     const db = await getBAPDbo();
     const pipeline = [
       { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
       { $skip: offset },
       { $limit: limit },
-    ]
-    const identities = await db.collection("identities").aggregate(pipeline).toArray();
+    ];
+    const identities = await db.collection('identities').aggregate(pipeline).toArray();
 
     return identities.map((s) => ({
       idKey: s._id.toString(),
@@ -226,7 +233,7 @@ export async function searchIdentities({ q, limit = 10, offset = 3 }: SearchPara
       valid: s.valid,
       identityTxId: s.identityTxId || '',
       identity: s.profile,
-    }))
+    }));
   } catch (e) {
     console.log(e);
     throw e;

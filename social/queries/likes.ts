@@ -3,19 +3,19 @@ import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
-import { PostsResponse } from '../../queries/posts.js';
+import type { PostsResponse } from '../../queries/posts.js';
 import type { Reaction } from '../schemas.js';
 
 // Like document from MongoDB
 interface LikeDocument {
   tx?: { h: string };
   AIP?: Array<{ address: string }>;
-  MAP?: any[];
-  [key: string]: any;
+  MAP?: unknown[];
+  [key: string]: unknown;
 }
 
 interface LikesParams {
-  likes?: any[];
+  likes?: unknown[];
   txid?: string;
   bapId?: string;
   page?: number;
@@ -175,9 +175,9 @@ export async function getLikes({
   const skip = (page - 1) * limit;
 
   const query: {
-    "MAP.type"?: string,
-    "AIP.address"?: {$in: string[]},
-  } = {}
+    'MAP.type'?: string;
+    'AIP.address'?: { $in: string[] };
+  } = {};
   if (txid) {
     query['MAP.tx'] = txid;
   } else if (bapId) {
@@ -186,17 +186,12 @@ export async function getLikes({
       console.log('No current address found for BAP ID:', bapId, identity);
       throw new Error('Invalid BAP identity data');
     }
-    query['AIP.address'] = {$in: identity.addresses.map(a => a.address)};
+    query['AIP.address'] = { $in: identity.addresses.map((a) => a.address) };
   }
 
   console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);
   const [results, count] = await Promise.all([
-    dbo.collection('like')
-      .find(query)
-      .sort({ 'timestamp': -1 })
-      .skip(skip)
-      .limit(limit)
-      .toArray(),
+    dbo.collection('like').find(query).sort({ timestamp: -1 }).skip(skip).limit(limit).toArray(),
     dbo.collection('like').countDocuments(query),
   ]);
 
@@ -216,7 +211,7 @@ export async function getLikes({
     Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
   );
 
-  console.log('Results:', results)
+  console.log('Results:', results);
   return {
     page,
     limit,
@@ -227,22 +222,25 @@ export async function getLikes({
       blk: msg.blk || { i: 0, t: 0 },
       timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
       MAP: msg.MAP,
-      B: msg.B?.map((b) => ({
-        encoding: b?.encoding || '',
-        content: b?.content || '',
-        "content-type": (b && b['content-type']) || ''
-      })) || [],
+      B:
+        msg.B?.map((b) => ({
+          encoding: b?.encoding || '',
+          content: b?.content || '',
+          'content-type': b?.['content-type'] || '',
+        })) || [],
     })),
-    signers: signers.filter(s => s).map((s) => ({
-      idKey: s.idKey,
-      rootAddress: s.rootAddress,
-      currentAddress: s.currentAddress,
-      addresses: s.addresses,
-      block: s.block || 0,
-      timestamp: s.timestamp || 0,
-      valid: s.valid ?? true,
-      identityTxId: s.identityTxId || '',
-      identity: s.identity,
-    })),
+    signers: signers
+      .filter((s) => s)
+      .map((s) => ({
+        idKey: s.idKey,
+        rootAddress: s.rootAddress,
+        currentAddress: s.currentAddress,
+        addresses: s.addresses,
+        block: s.block || 0,
+        timestamp: s.timestamp || 0,
+        valid: s.valid ?? true,
+        identityTxId: s.identityTxId || '',
+        identity: s.identity,
+      })),
   };
 }

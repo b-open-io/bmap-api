@@ -2,12 +2,7 @@ import type { BmapTx } from 'bmapjs';
 import { getBAPIdByAddress } from '../../bap.js';
 import { PROTOCOL_START_BLOCK } from '../../constants.js';
 import { getDbo } from '../../db.js';
-import type {
-  Friend,
-  FriendRequest,
-  FriendshipResponse,
-  RelationshipState,
-} from '../schemas.js';
+import type { Friend, FriendRequest, FriendshipResponse, RelationshipState } from '../schemas.js';
 import { fetchBapIdentityData } from './identity.js';
 
 // Cache for BAP identities to reduce redundant lookups
@@ -176,7 +171,7 @@ export async function processRelationships(
         if (isFromMe) {
           rel.fromMe = true;
           rel.mePublicKey = publicKey;
-          rel.txid = txid
+          rel.txid = txid;
           rel.txids.add(txid);
           rel.height = height;
         } else {

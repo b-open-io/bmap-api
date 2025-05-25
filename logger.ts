@@ -1,15 +1,15 @@
-import { createWriteStream, existsSync, statSync } from 'fs';
-import { join } from 'path';
-import { format } from 'util';
+import { createWriteStream, existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { format } from 'node:util';
 
 interface LoggerOptions {
   maxSize?: number; // Max file size in bytes (default: 10MB)
-  logDir?: string;  // Directory for log files (default: ./logs)
+  logDir?: string; // Directory for log files (default: ./logs)
   filename?: string; // Log filename (default: app.log)
 }
 
 class Logger {
-  private writeStream: any | null = null;
+  private writeStream: NodeJS.WritableStream | null = null;
   private currentLogPath: string;
   private maxSize: number;
   private logDir: string;
@@ -68,7 +68,7 @@ class Logger {
   private rotateLog() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const rotatedPath = join(this.logDir, `${this.filename}.${timestamp}`);
-    
+
     // Rename current log file
     Bun.spawnSync(['mv', this.currentLogPath, rotatedPath]);
 
@@ -80,23 +80,25 @@ class Logger {
   }
 
   private cleanupOldLogs() {
-    const files = Bun.spawnSync(['ls', '-t', this.logDir]).stdout.toString().split('\n')
-      .filter(f => f.endsWith('.gz') && f.startsWith(this.filename));
-    
+    const files = Bun.spawnSync(['ls', '-t', this.logDir])
+      .stdout.toString()
+      .split('\n')
+      .filter((f) => f.endsWith('.gz') && f.startsWith(this.filename));
+
     if (files.length > 5) {
-      files.slice(5).forEach(file => {
+      for (const file of files.slice(5)) {
         Bun.spawnSync(['rm', join(this.logDir, file)]);
-      });
+      }
     }
   }
 
-  private formatLogEntry(level: string, args: any[]): string {
+  private formatLogEntry(level: string, args: unknown[]): string {
     const timestamp = new Date().toISOString();
     const message = format(...args);
     return `[${timestamp}] [${level}] ${message}\n`;
   }
 
-  private writeLog(level: string, args: any[]) {
+  private writeLog(level: string, args: unknown[]) {
     // Write to console
     this.originalConsole[level.toLowerCase() as keyof typeof this.originalConsole](...args);
 
@@ -111,11 +113,11 @@ class Logger {
   }
 
   private overrideConsole() {
-    console.log = (...args: any[]) => this.writeLog('LOG', args);
-    console.error = (...args: any[]) => this.writeLog('ERROR', args);
-    console.warn = (...args: any[]) => this.writeLog('WARN', args);
-    console.info = (...args: any[]) => this.writeLog('INFO', args);
-    console.debug = (...args: any[]) => this.writeLog('DEBUG', args);
+    console.log = (...args: unknown[]) => this.writeLog('LOG', args);
+    console.error = (...args: unknown[]) => this.writeLog('ERROR', args);
+    console.warn = (...args: unknown[]) => this.writeLog('WARN', args);
+    console.info = (...args: unknown[]) => this.writeLog('INFO', args);
+    console.debug = (...args: unknown[]) => this.writeLog('DEBUG', args);
   }
 
   public close() {

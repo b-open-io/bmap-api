@@ -13,27 +13,37 @@ export const ChannelMessageSchema = t.Object({
   page: t.Number(),
   limit: t.Number(),
   count: t.Number(),
-  results: t.Array(t.Object({
-    tx: t.Object({ h: t.String() }),
-    blk: t.Object({ i: t.Number(), t: t.Number() }),
-    MAP: t.Array(t.Object({
-      app: t.String(),
-      type: t.String(),
-      paymail: t.Optional(t.String()),
-      context: t.Optional(t.String()),
-      channel: t.Optional(t.String()),
-      bapID: t.Optional(t.String()),
-    })),
-    B: t.Array(t.Object({
-      encoding: t.String(),
-      content: t.Optional(t.String()),
-      'content-type': t.Optional(t.String()),
-    })),
-    AIP: t.Optional(t.Array(t.Object({
-      algorithm: t.String(),
-      address: t.String(),
-    }))),
-  })),
+  results: t.Array(
+    t.Object({
+      tx: t.Object({ h: t.String() }),
+      blk: t.Object({ i: t.Number(), t: t.Number() }),
+      MAP: t.Array(
+        t.Object({
+          app: t.String(),
+          type: t.String(),
+          paymail: t.Optional(t.String()),
+          context: t.Optional(t.String()),
+          channel: t.Optional(t.String()),
+          bapID: t.Optional(t.String()),
+        })
+      ),
+      B: t.Array(
+        t.Object({
+          encoding: t.String(),
+          content: t.Optional(t.String()),
+          'content-type': t.Optional(t.String()),
+        })
+      ),
+      AIP: t.Optional(
+        t.Array(
+          t.Object({
+            algorithm: t.String(),
+            address: t.String(),
+          })
+        )
+      ),
+    })
+  ),
   signers: t.Array(t.Any()), // BapIdentity array
 });
 
@@ -43,24 +53,28 @@ export const MessageListenParams = t.Object({
 });
 
 export const DMResponseSchema = t.Object({
-  messages: t.Array(t.Object({
-    bapId: t.String(),
-    decrypted: t.Boolean(),
-    encrypted: t.Optional(t.String()),
-    tx: t.Object({ h: t.String() }),
-    timestamp: t.Number(),
-    blk: t.Object({ i: t.Number(), t: t.Number() }),
-    _id: t.String(),
-  })),
-  lastMessage: t.Optional(t.Object({
-    bapId: t.String(),
-    decrypted: t.Boolean(),
-    encrypted: t.Optional(t.String()),
-    tx: t.Object({ h: t.String() }),
-    timestamp: t.Number(),
-    blk: t.Object({ i: t.Number(), t: t.Number() }),
-    _id: t.String(),
-  })),
+  messages: t.Array(
+    t.Object({
+      bapId: t.String(),
+      decrypted: t.Boolean(),
+      encrypted: t.Optional(t.String()),
+      tx: t.Object({ h: t.String() }),
+      timestamp: t.Number(),
+      blk: t.Object({ i: t.Number(), t: t.Number() }),
+      _id: t.String(),
+    })
+  ),
+  lastMessage: t.Optional(
+    t.Object({
+      bapId: t.String(),
+      decrypted: t.Boolean(),
+      encrypted: t.Optional(t.String()),
+      tx: t.Object({ h: t.String() }),
+      timestamp: t.Number(),
+      blk: t.Object({ i: t.Number(), t: t.Number() }),
+      _id: t.String(),
+    })
+  ),
 });
 
 // OpenAPI Documentation

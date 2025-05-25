@@ -14,28 +14,27 @@ import { getLikes, processLikes } from './queries/likes.js';
 import { updateSignerCache } from './queries/messages.js';
 // Import consolidated schemas and types
 import {
-  ChannelResponseSchema,
-  ChannelParams,
-  ChannelMessageSchema,
-  DMResponseSchema,
-  MessageListenParams,
-  PaginationQuery,
-  FriendResponseSchema,
-  IdentityResponseSchema,
-  LikeRequestSchema,
-  LikeResponseSchema,
-  PostQuery,
-  type BaseMessage as Message,
   type ChannelMessage,
   type ChannelMessageResponse,
+  ChannelMessageSchema,
+  ChannelParams,
+  ChannelResponseSchema,
+  DMResponseSchema,
+  FriendResponseSchema,
+  IdentityResponseSchema,
   type LikeInfo,
-  type Post,
   type LikeRequest,
+  LikeRequestSchema,
+  LikeResponseSchema,
   type LikesQueryRequest,
-  type Reaction,
-  type Reactions,
+  type BaseMessage as Message,
+  MessageListenParams,
+  PaginationQuery,
+  type Post,
+  PostQuery,
 } from './schemas.js';
 
+import { getPost, getPosts, getReplies, searchPosts } from '../queries/posts.js';
 // Import swagger endpoint details
 import { channelsEndpointDetail } from './swagger/channels.js';
 import { friendEndpointDetail } from './swagger/friend.js';
@@ -43,11 +42,10 @@ import { identityEndpointDetail } from './swagger/identity.js';
 import { likesEndpointDetail } from './swagger/likes.js';
 import {
   channelMessagesEndpointDetail,
-  messageListenEndpointDetail,
   directMessagesEndpointDetail,
   directMessagesWithTargetEndpointDetail,
+  messageListenEndpointDetail,
 } from './swagger/messages.js';
-import { getPost, getPosts, getReplies, searchPosts } from '../queries/posts.js';
 
 // Validation helper for signer data
 function validateSignerData(signer: BapIdentity): { isValid: boolean; errors: string[] } {
@@ -167,17 +165,19 @@ export const socialRoutes = new Elysia()
           ...msg,
           tx: { h: msg.tx?.h || '' },
           blk: { i: msg.blk?.i || 0, t: msg.blk?.t || 0 },
-          MAP: msg.MAP?.map((m) => ({
-            app: m.app || '',
-            type: 'message', // Ensure type is explicitly set to "message"
-            channel: m.channel || '',
-            paymail: m.paymail || '',
-          })) || [],
-          B: msg.B?.map((b) => ({
-            encoding: b?.encoding || '',
-            content: b?.content || '',
-            'content-type': (b && b['content-type']) || '',
-          })) || [],
+          MAP:
+            msg.MAP?.map((m) => ({
+              app: m.app || '',
+              type: 'message', // Ensure type is explicitly set to "message"
+              channel: m.channel || '',
+              paymail: m.paymail || '',
+            })) || [],
+          B:
+            msg.B?.map((b) => ({
+              encoding: b?.encoding || '',
+              content: b?.content || '',
+              'content-type': b?.['content-type'] || '',
+            })) || [],
         }));
 
         // Initialize empty signers array with proper type
@@ -249,232 +249,251 @@ export const socialRoutes = new Elysia()
       detail: channelMessagesEndpointDetail,
     }
   )
-    .get(
-    "/autofill", 
-    async ({ query }) => {
-      console.log('=== Starting /autofill request ===');
-      try {
-        const { q } = query;
-        if (!q) {
-          throw new Error('q param is required');
-        }
-
-        const cached = await client.hGet("autofill", q);
-        if (cached) {
-          console.log('Cache hit for autofill:', q);
-          return {
-            status: "OK",
-            result: JSON.parse(cached),
-          };
-        }
-        const [identites, posts] = await Promise.all([
-          searchIdentities({q, limit: 3, offset: 0}),
-          searchPosts({q, limit: 10, offset: 0}),
-        ]);
-
-        const result = {
-          identities: identites,
-          posts: posts,
-        };
-        client.hSet("autofill", q, JSON.stringify(result));
-        client.hExpire("autofill", q, 15 * 60); // 15 minutes
-        return {
-          status: "OK",
-          result: result,
-        };
-      } catch (error: unknown) {
-        console.error('Error fetching autofill data:', error);
-        throw new Error('Failed to fetch autofill data');
+  .get('/autofill', async ({ query }) => {
+    console.log('=== Starting /autofill request ===');
+    try {
+      const { q } = query;
+      if (!q) {
+        throw new Error('q param is required');
       }
+
+      const cached = await client.hGet('autofill', q);
+      if (cached) {
+        console.log('Cache hit for autofill:', q);
+        return {
+          status: 'OK',
+          result: JSON.parse(cached),
+        };
+      }
+      const [identites, posts] = await Promise.all([
+        searchIdentities({ q, limit: 3, offset: 0 }),
+        searchPosts({ q, limit: 10, offset: 0 }),
+      ]);
+
+      const result = {
+        identities: identites,
+        posts: posts,
+      };
+      client.hSet('autofill', q, JSON.stringify(result));
+      client.hExpire('autofill', q, 15 * 60); // 15 minutes
+      return {
+        status: 'OK',
+        result: result,
+      };
+    } catch (error: unknown) {
+      console.error('Error fetching autofill data:', error);
+      throw new Error('Failed to fetch autofill data');
+    }
+  })
+  .get('/identity/search', async ({ query }) => {
+    console.log('=== Starting /identity/search request ===');
+    try {
+      const { q, limit, offset } = query;
+      if (!q) {
+        throw new Error('q param is required');
+      }
+
+      const results = await searchIdentities({
+        q,
+        limit: limit ? Number.parseInt(limit, 10) : 100,
+        offset: offset ? Number.parseInt(offset, 10) : 0,
+      });
+
+      return {
+        status: 'OK',
+        result: results,
+      };
+    } catch (error: unknown) {
+      console.error('Error fetching autofill data:', error);
+      throw new Error('Failed to fetch autofill data');
+    }
+  })
+  .get('/post/search', async ({ query }) => {
+    console.log('=== Starting /post/search request ===');
+    try {
+      const { q, limit, offset } = query;
+      if (!q) {
+        throw new Error('q param is required');
+      }
+
+      const results = await searchPosts({
+        q,
+        limit: limit ? Number.parseInt(limit, 10) : 100,
+        offset: offset ? Number.parseInt(offset, 10) : 0,
+      });
+
+      return {
+        status: 'OK',
+        result: results,
+      };
+    } catch (error: unknown) {
+      console.error('Error fetching autofill data:', error);
+      throw new Error('Failed to fetch autofill data');
+    }
+  })
+  .get(
+    '/feed/:bapId?',
+    async ({ set, query, params }) => {
+      try {
+        const postQuery = {
+          bapId: params.bapId,
+          page: query.page ? Number.parseInt(query.page, 10) : 1,
+          limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+          feed: true,
+        };
+        return getPosts(postQuery);
+      } catch (error: unknown) {
+        console.error('Error fetching feed:', error);
+        set.status = 500;
+        return {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch feed',
+        };
+      }
+    },
+    {
+      query: PostQuery,
     }
   )
   .get(
-    "/identity/search", 
-    async ({ query }) => {
-      console.log('=== Starting /identity/search request ===');
+    '/post/:txid',
+    async ({ set, params }) => {
+      console.log('=== Starting /post/:txid request ===');
       try {
-        const { q, limit, offset } = query;
-        if (!q) {
-          throw new Error('q param is required');
-        };
-
-        const results = await searchIdentities({
-          q,
-          limit: limit ? Number.parseInt(limit, 10) : 100,
-          offset: offset ? Number.parseInt(offset, 10) : 0,
-        });
-
-        return {
-          status: "OK",
-          result: results,
-        };
+        return getPost(params.txid);
       } catch (error: unknown) {
-        console.error('Error fetching autofill data:', error);
-        throw new Error('Failed to fetch autofill data');
+        console.error('Error fetching feed:', error);
+        set.status = 500;
+        return {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch feed',
+        };
       }
+    },
+    {
+      query: PostQuery,
     }
   )
   .get(
-    "/post/search", 
-    async ({ query }) => {
-      console.log('=== Starting /post/search request ===');
+    '/post/:txid/reply',
+    async ({ set, query, params }) => {
+      console.log('=== Starting /post/:txid/reply request ===');
       try {
-        const { q, limit, offset } = query;
-        if (!q) {
-          throw new Error('q param is required');
+        const repliesQuery = {
+          txid: params.txid,
+          page: query.page ? Number.parseInt(query.page, 10) : 1,
+          limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
         };
-
-        const results = await searchPosts({
-          q,
-          limit: limit ? Number.parseInt(limit, 10) : 100,
-          offset: offset ? Number.parseInt(offset, 10) : 0,
-        });
-
-        return {
-          status: "OK",
-          result: results,
-        };
+        return getReplies(repliesQuery);
       } catch (error: unknown) {
-        console.error('Error fetching autofill data:', error);
-        throw new Error('Failed to fetch autofill data');
+        console.error('Error fetching feed:', error);
+        set.status = 500;
+        return {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch feed',
+        };
       }
+    },
+    {
+      query: PostQuery,
     }
   )
-  .get('/feed/:bapId?', async ({ set, query, params }) => {
-    try {
-      const postQuery = {
-        bapId: params.bapId,
-        page: query.page ? Number.parseInt(query.page, 10) : 1,
-        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
-        feed: true,
+  .get(
+    '/post/:txid/like',
+    async ({ set, query, params }) => {
+      console.log('=== Starting /post/:txid/like request ===');
+      try {
+        const repliesQuery = {
+          txid: params.txid,
+          page: query.page ? Number.parseInt(query.page, 10) : 1,
+          limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+        };
+        return getLikes(repliesQuery);
+      } catch (error: unknown) {
+        console.error('Error fetching feed:', error);
+        set.status = 500;
+        return {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch feed',
+        };
       }
-      return getPosts(postQuery);
-    } catch (error: unknown) {
-      console.error('Error fetching feed:', error);
-      set.status = 500;
-      return {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch feed',
-      };
+    },
+    {
+      query: PostQuery,
     }
-  }, {
-    query: PostQuery,
-  })
-  .get('/post/:txid', async ({ set, params }) => {
-    console.log('=== Starting /post/:txid request ===');
-    try {
-      return getPost(params.txid);
-    } catch (error: unknown) {
-      console.error('Error fetching feed:', error);
-      set.status = 500;
-      return {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch feed',
-      };
-    }
-  }, {
-    query: PostQuery,
-  })
-  .get('/post/:txid/reply', async ({ set, query, params }) => {
-    console.log('=== Starting /post/:txid/reply request ===');
-    try {
-      const repliesQuery = {
-        txid: params.txid,
-        page: query.page ? Number.parseInt(query.page, 10) : 1,
-        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+  )
+  .get(
+    '/post/address/:address',
+    async ({ set, query, params }) => {
+      console.log('=== Starting /post/address/:address request ===');
+      try {
+        const postQuery = {
+          address: params.address,
+          page: query.page ? Number.parseInt(query.page, 10) : 1,
+          limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+        };
+        return getPosts(postQuery);
+      } catch (error: unknown) {
+        console.error('Error fetching feed:', error);
+        set.status = 500;
+        return {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch feed',
+        };
       }
-      return getReplies(repliesQuery);
-    } catch (error: unknown) {
-      console.error('Error fetching feed:', error);
-      set.status = 500;
-      return {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch feed',
-      };
+    },
+    {
+      query: PostQuery,
     }
-  }, {
-    query: PostQuery,
-  })
-  .get('/post/:txid/like', async ({ set, query, params }) => {
-    console.log('=== Starting /post/:txid/like request ===');
-    try {
-      const repliesQuery = {
-        txid: params.txid,
-        page: query.page ? Number.parseInt(query.page, 10) : 1,
-        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+  )
+  .get(
+    '/post/bap/:bapId',
+    async ({ set, query, params }) => {
+      console.log('=== Starting /post/bap/:bapId request ===');
+      try {
+        const postQuery = {
+          bapId: params.bapId,
+          page: query.page ? Number.parseInt(query.page, 10) : 1,
+          limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+        };
+        return getPosts(postQuery);
+      } catch (error: unknown) {
+        console.error('Error fetching feed:', error);
+        set.status = 500;
+        return {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch feed',
+        };
       }
-      return getLikes(repliesQuery);
-    } catch (error: unknown) {
-      console.error('Error fetching feed:', error);
-      set.status = 500;
-      return {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch feed',
-      };
+    },
+    {
+      query: PostQuery,
     }
-  }, {
-    query: PostQuery,
-  })
-  .get('/post/address/:address', async ({ set, query, params }) => {
-    console.log('=== Starting /post/address/:address request ===');
-    try {
-      const postQuery = {
-        address: params.address,
-        page: query.page ? Number.parseInt(query.page, 10) : 1,
-        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+  )
+  .get(
+    '/bap/:bapId/like',
+    async ({ set, query, params }) => {
+      console.log('=== Starting /bap/:bapId/like request ===');
+      try {
+        const repliesQuery = {
+          bapId: params.bapId,
+          page: query.page ? Number.parseInt(query.page, 10) : 1,
+          limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
+        };
+        return getLikes(repliesQuery);
+      } catch (error: unknown) {
+        console.error('Error fetching feed:', error);
+        set.status = 500;
+        return {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch feed',
+        };
       }
-      return getPosts(postQuery);
-    } catch (error: unknown) {
-      console.error('Error fetching feed:', error);
-      set.status = 500;
-      return {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch feed',
-      };
+    },
+    {
+      query: PostQuery,
     }
-  }, {
-    query: PostQuery,
-  })
-  .get('/post/bap/:bapId', async ({ set, query, params }) => {
-    console.log('=== Starting /post/bap/:bapId request ===');
-    try {
-      const postQuery = {
-        bapId: params.bapId,
-        page: query.page ? Number.parseInt(query.page, 10) : 1,
-        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
-      }
-      return getPosts(postQuery);
-    } catch (error: unknown) {
-      console.error('Error fetching feed:', error);
-      set.status = 500;
-      return {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch feed',
-      };
-    }
-  }, {
-    query: PostQuery,
-  })
-  .get('/bap/:bapId/like', async ({ set, query, params }) => {
-    console.log('=== Starting /bap/:bapId/like request ===');
-    try {
-      const repliesQuery = {
-        bapId: params.bapId,
-        page: query.page ? Number.parseInt(query.page, 10) : 1,
-        limit: query.limit ? Number.parseInt(query.limit, 10) : 100,
-      }
-      return getLikes(repliesQuery);
-    } catch (error: unknown) {
-      console.error('Error fetching feed:', error);
-      set.status = 500;
-      return {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch feed',
-      };
-    }
-  }, {
-    query: PostQuery,
-  })
+  )
   .post(
     '/likes',
     async ({ body }) => {
@@ -489,13 +508,13 @@ export const socialRoutes = new Elysia()
 
         if (request.txids) {
           for (const txid of request.txids) {
-            const likes = (await db
+            const likes = await db
               .collection('like')
               .find({
                 'MAP.type': 'like',
                 'MAP.tx': txid,
               })
-              .toArray()) as unknown as Reaction[];
+              .toArray();
 
             const { signers } = await processLikes(likes);
 
@@ -510,13 +529,13 @@ export const socialRoutes = new Elysia()
 
         if (request.messageIds) {
           for (const messageId of request.messageIds) {
-            const likes = (await db
+            const likes = await db
               .collection('like')
               .find({
                 'MAP.type': 'like',
                 'MAP.messageID': messageId,
               })
-              .toArray()) as unknown as Reaction[];
+              .toArray();
 
             const { signers } = await processLikes(likes);
 
@@ -769,10 +788,10 @@ export const socialRoutes = new Elysia()
                     currentAddress: identity.currentAddress || '',
                     addresses: Array.isArray(identity.addresses)
                       ? identity.addresses.map((addr) => ({
-                        address: addr.address || '',
-                        txId: addr.txId || '',
-                        block: typeof addr.block === 'number' ? addr.block : undefined,
-                      }))
+                          address: addr.address || '',
+                          txId: addr.txId || '',
+                          block: typeof addr.block === 'number' ? addr.block : undefined,
+                        }))
                       : [],
                     identity:
                       typeof identity.identity === 'string'

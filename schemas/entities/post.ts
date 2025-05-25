@@ -5,22 +5,22 @@ export interface Post {
   MAP: Array<{
     app?: string;
     type?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }>;
   AIP?: {
     algorithm?: string;
     address?: string;
     signature?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   B?: {
     content?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   BAP?: {
     type?: string;
     address?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   tx: {
     h: string;
