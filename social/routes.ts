@@ -12,24 +12,38 @@ import { fetchAllFriendsAndUnfriends, processRelationships } from './queries/fri
 import { fetchBapIdentityData } from './queries/identity.js';
 import { getLikes, processLikes } from './queries/likes.js';
 import { updateSignerCache } from './queries/messages.js';
-import { ChannelResponseSchema, channelsEndpointDetail } from './swagger/channels.js';
-import { ChannelParams } from './swagger/channels.js';
-import { Post, PostQuery } from './swagger/posts.js';
-import { FriendResponseSchema, friendEndpointDetail } from './swagger/friend.js';
-import { IdentityResponseSchema, identityEndpointDetail } from './swagger/identity.js';
-import type { LikeInfo, LikeRequest, Reaction, Reactions } from './swagger/likes.js';
-import { LikeRequestSchema, LikeResponseSchema } from './swagger/likes.js';
-import { likesEndpointDetail } from './swagger/likes.js';
-import type { ChannelMessage, Message } from './swagger/messages.js';
+// Import consolidated schemas and types
 import {
+  ChannelResponseSchema,
+  ChannelParams,
   ChannelMessageSchema,
   DMResponseSchema,
   MessageListenParams,
-  MessageQuery,
+  PaginationQuery,
+  FriendResponseSchema,
+  IdentityResponseSchema,
+  LikeRequestSchema,
+  LikeResponseSchema,
+  PostQuery,
+  type BaseMessage as Message,
+  type ChannelMessage,
+  type ChannelMessageResponse,
+  type LikeInfo,
+  type Post,
+  type LikeRequest,
+  type LikesQueryRequest,
+  type Reaction,
+  type Reactions,
+} from './schemas.js';
+
+// Import swagger endpoint details
+import { channelsEndpointDetail } from './swagger/channels.js';
+import { friendEndpointDetail } from './swagger/friend.js';
+import { identityEndpointDetail } from './swagger/identity.js';
+import { likesEndpointDetail } from './swagger/likes.js';
+import {
   channelMessagesEndpointDetail,
   messageListenEndpointDetail,
-} from './swagger/messages.js';
-import {
   directMessagesEndpointDetail,
   directMessagesWithTargetEndpointDetail,
 } from './swagger/messages.js';
@@ -115,12 +129,17 @@ export const socialRoutes = new Elysia()
           Object.assign(set.headers, {
             'Cache-Control': 'public, max-age=60',
           });
-          const response: ChannelMessage = {
-            ...cached.value,
-            channel: channelId,
-            signers: cached.value.signers || [],
-          };
-          return response;
+          // Type guard to ensure we have the right cached value type
+          if ('page' in cached.value && 'results' in cached.value) {
+            const response: ChannelMessageResponse = {
+              ...cached.value,
+              channel: channelId,
+              signers: cached.value.signers || [],
+            };
+            return response;
+          }
+          // If it's not the expected format, fall through to fetch fresh data
+          console.warn('Cached value has unexpected format');
         }
 
         console.log('Cache miss for messages:', cacheKey);
@@ -190,7 +209,7 @@ export const socialRoutes = new Elysia()
                 : JSON.stringify(s.identity || {}),
         }));
 
-        const response: ChannelMessage = {
+        const response: ChannelMessageResponse = {
           channel: channelId,
           page,
           limit,
@@ -212,19 +231,12 @@ export const socialRoutes = new Elysia()
         console.error('Error fetching messages:', error);
         set.status = 500;
         // Return a properly structured response with empty arrays
-        const errorResponse: ChannelMessage = {
+        const errorResponse: ChannelMessageResponse = {
           channel: params.channelId || '',
           page: 1,
           limit: 100,
           count: 0,
-          results: [
-            {
-              tx: { h: '' },
-              blk: { i: 0, t: 0 },
-              MAP: [{ app: '', type: 'message', channel: '', paymail: '' }],
-              B: [{ encoding: '', content: '' }],
-            },
-          ],
+          results: [],
           signers: [],
         };
         return errorResponse;
@@ -232,7 +244,7 @@ export const socialRoutes = new Elysia()
     },
     {
       params: ChannelParams,
-      query: MessageQuery,
+      query: PaginationQuery,
       response: ChannelMessageSchema,
       detail: channelMessagesEndpointDetail,
     }
@@ -467,7 +479,7 @@ export const socialRoutes = new Elysia()
     '/likes',
     async ({ body }) => {
       try {
-        const request = body as LikeRequest;
+        const request = body as LikesQueryRequest;
         if (!request.txids && !request.messageIds) {
           throw new Error('Must provide either txids or messageIds');
         }
@@ -613,7 +625,7 @@ export const socialRoutes = new Elysia()
     },
     {
       params: t.Object({ bapId: t.String() }),
-      query: MessageQuery,
+      query: PaginationQuery,
       response: DMResponseSchema,
       detail: directMessagesEndpointDetail,
     }
@@ -646,7 +658,7 @@ export const socialRoutes = new Elysia()
     },
     {
       params: t.Object({ bapId: t.String(), targetBapId: t.String() }),
-      query: MessageQuery,
+      query: PaginationQuery,
       response: DMResponseSchema,
       detail: directMessagesWithTargetEndpointDetail,
     }

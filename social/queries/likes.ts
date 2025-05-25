@@ -4,12 +4,28 @@ import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
 import { PostsResponse } from '../../queries/posts.js';
-import type { LikesParams, Reaction } from '../swagger/likes.js';
+import type { Reaction } from '../schemas.js';
+
+// Like document from MongoDB
+interface LikeDocument {
+  tx?: { h: string };
+  AIP?: Array<{ address: string }>;
+  MAP?: any[];
+  [key: string]: any;
+}
+
+interface LikesParams {
+  likes?: any[];
+  txid?: string;
+  bapId?: string;
+  page?: number;
+  limit?: number;
+}
 import { fetchBapIdentityData, validateSignerData } from './identity.js';
 
 // Helper to process likes with better error handling and logging
 export async function processLikes(
-  likes: Reaction[]
+  likes: LikeDocument[]
 ): Promise<{ signerIds: string[]; signers: BapIdentity[] }> {
   console.log('Processing likes:', likes.length);
 

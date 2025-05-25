@@ -5,7 +5,7 @@ import { getBAPIdByAddress, getSigners } from '../bap.js';
 import { PROTOCOL_START_BLOCK } from '../constants.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
-import type { DMResponse } from '../social/swagger/messages.js';
+import type { DMResponse } from '../social/schemas.js';
 
 interface MessageQueryParams {
   bapId: string;
@@ -94,24 +94,13 @@ export async function getDirectMessages({
   const signers = await getSigners([...signerAddresses])
 
   return {
-    bapID: bapId,
-    page,
-    limit,
-    count,
-    results: results.map((msg) => ({
-      ...msg,
+    messages: results.map((msg) => ({
+      bapId,
+      decrypted: false,
       tx: { h: msg.tx?.h || '' },
-      blk: msg.blk || { i: 0, t: 0 },
       timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
-      MAP: msg.MAP.map((m) => ({
-        ...m,
-        bapID: m.bapID || '',
-      })),
-      B: msg.B.map((b) => ({
-        encoding: b?.encoding || '',
-        content: b?.content || '',
-        "content-type": (b && b['content-type']) || ''
-      })),
+      blk: msg.blk || { i: 0, t: 0 },
+      _id: msg._id.toString(),
     })),
     signers,
   };

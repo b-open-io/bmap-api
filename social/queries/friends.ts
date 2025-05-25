@@ -7,7 +7,7 @@ import type {
   FriendRequest,
   FriendshipResponse,
   RelationshipState,
-} from '../swagger/friend.js';
+} from '../schemas.js';
 import { fetchBapIdentityData } from './identity.js';
 
 // Cache for BAP identities to reduce redundant lookups

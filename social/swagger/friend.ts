@@ -1,60 +1,4 @@
-import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
-
-export interface RelationshipState {
-  fromMe: boolean;
-  fromThem: boolean;
-  mePublicKey?: string;
-  themPublicKey?: string;
-  unfriended: boolean;
-  txid?: string;
-  txids?: Set<string>;
-  height?: number;
-}
-
-export interface FriendRequest {
-  bapID: string;
-  txid: string;
-  height: number;
-}
-
-export interface FriendshipResponse {
-  friends: Friend[];
-  incoming: FriendRequest[];
-  outgoing: FriendRequest[];
-}
-
-export interface Friend {
-  bapID: string;
-  themPublicKey: string;
-  mePublicKey: string;
-  txids?: string[];
-}
-
-export const FriendResponseSchema = t.Object({
-  friends: t.Array(
-    t.Object({
-      bapID: t.String(),
-      mePublicKey: t.String(),
-      themPublicKey: t.String(),
-      txids: t.Optional(t.Array(t.String())),
-    })
-  ),
-  incoming: t.Array(
-    t.Object({
-      bapID: t.String(),
-      txid: t.String(),
-      height: t.Number(),
-    })
-  ),
-  outgoing: t.Array(
-    t.Object({
-      bapID: t.String(),
-      txid: t.String(),
-      height: t.Number(),
-    })
-  ),
-});
 
 export const friendEndpointDetail: OpenAPIV3.OperationObject = {
   tags: ['social'],
@@ -65,89 +9,46 @@ export const friendEndpointDetail: OpenAPIV3.OperationObject = {
       name: 'bapId',
       in: 'path',
       required: true,
-      schema: {
-        type: 'string' as const,
-      },
+      schema: { type: 'string' },
       description: 'BAP Identity Key',
     },
   ],
   responses: {
     '200': {
-      description: 'Friend relationships',
+      description: 'Friend relationships categorized by status',
       content: {
         'application/json': {
           schema: {
-            type: 'object' as const,
-            properties: {
-              friends: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Mutual friends (BAP IDs)',
-              },
-              incoming: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Incoming friend requests (BAP IDs)',
-              },
-              outgoing: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Outgoing friend requests (BAP IDs)',
-              },
-            },
+            $ref: '#/components/schemas/FriendResponse',
           },
         },
       },
     },
     '400': {
-      description: 'Bad Request - Missing BAP ID parameter',
+      description: 'Bad Request - Missing BAP ID',
       content: {
         'application/json': {
           schema: {
-            type: 'object' as const,
+            type: 'object',
             properties: {
-              friends: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Empty array',
-              },
-              incoming: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Empty array',
-              },
-              outgoing: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Empty array',
-              },
+              friends: { type: 'array', items: {} },
+              incoming: { type: 'array', items: {} },
+              outgoing: { type: 'array', items: {} },
             },
           },
         },
       },
     },
     '404': {
-      description: 'Not Found - BAP ID does not exist or cannot be found',
+      description: 'BAP ID not found',
       content: {
         'application/json': {
           schema: {
-            type: 'object' as const,
+            type: 'object',
             properties: {
-              friends: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Empty array',
-              },
-              incoming: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Empty array',
-              },
-              outgoing: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Empty array',
-              },
+              friends: { type: 'array', items: {} },
+              incoming: { type: 'array', items: {} },
+              outgoing: { type: 'array', items: {} },
             },
           },
         },
@@ -158,23 +59,11 @@ export const friendEndpointDetail: OpenAPIV3.OperationObject = {
       content: {
         'application/json': {
           schema: {
-            type: 'object' as const,
+            type: 'object',
             properties: {
-              friends: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Empty array',
-              },
-              incoming: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Empty array',
-              },
-              outgoing: {
-                type: 'array' as const,
-                items: { type: 'string' as const },
-                description: 'Empty array',
-              },
+              friends: { type: 'array', items: {} },
+              incoming: { type: 'array', items: {} },
+              outgoing: { type: 'array', items: {} },
             },
           },
         },

@@ -1,19 +1,23 @@
 import type { BapIdentity } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
-import type { SigmaIdentityAPIResponse, SigmaIdentityResult } from '../swagger/identity.js';
+import type { SigmaIdentityAPIResponse, SigmaIdentityResult } from '../schemas.js';
 
 export function sigmaIdentityToBapIdentity(result: SigmaIdentityResult): BapIdentity {
   return {
     idKey: result.idKey,
-    rootAddress: result.rootAddress,
-    currentAddress: result.currentAddress,
-    addresses: result.addresses,
+    rootAddress: result.rootAddress || '',
+    currentAddress: result.currentAddress || '',
+    addresses: result.addresses.map(addr => ({ 
+      address: addr, 
+      txId: '', 
+      block: result.block 
+    })),
     identity: result.identity,
-    identityTxId: result.identityTxId,
+    identityTxId: result.identityTxId || '',
     block: result.block,
     timestamp: result.timestamp,
-    valid: result.valid,
+    valid: result.valid || true,
   };
 }
 

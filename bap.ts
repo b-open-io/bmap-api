@@ -2,7 +2,7 @@ import type { BmapTx } from 'bmapjs';
 import _ from 'lodash';
 import { type CacheValue, readFromRedis, saveToRedis } from './cache.js';
 import { getBAPDbo } from './db.js';
-import { SearchParams } from './social/queries/types.js';
+import type { SearchParams } from './social/queries/types.js';
 const { uniq, uniqBy } = _;
 
 interface BapAddress {

@@ -1,110 +1,4 @@
-import type { BmapTx } from 'bmapjs';
-import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
-import type { BapIdentity } from '../../bap.js';
-
-export interface Message {
-  tx: {
-    h: string;
-  };
-  blk: {
-    i: number;
-    t: number;
-  };
-  MAP: {
-    app: string;
-    type: string;
-    paymail?: string;
-    context?: string;
-    channel?: string;
-    bapID?: string;
-  }[];
-  B: {
-    encoding: string;
-    content?: string;
-    'content-type'?: string; // Optional content type
-  }[];
-  AIP?: {
-    algorithm: string;
-    address: string;
-  }[];
-}
-
-export interface ChannelMessage {
-  channel: string;
-  page: number;
-  limit: number;
-  count: number;
-  results: Message[];
-  signers: BapIdentity[];
-}
-
-export const MessageQuery = t.Object({
-  page: t.Optional(t.String()),
-  limit: t.Optional(t.String()),
-});
-
-export const ChannelMessageSchema = t.Object({
-  channel: t.String(),
-  page: t.Number(),
-  limit: t.Number(),
-  count: t.Number(),
-  results: t.Array(
-    t.Object({
-      tx: t.Object({
-        h: t.String(),
-      }),
-      blk: t.Object({
-        i: t.Number(),
-        t: t.Number(),
-      }),
-      MAP: t.Array(
-        t.Object({
-          app: t.String(),
-          type: t.String(),
-          paymail: t.Optional(t.String()),
-          context: t.Optional(t.String()),
-          channel: t.Optional(t.String()),
-          bapID: t.Optional(t.String()),
-        })
-      ),
-      B: t.Array(
-        t.Object({
-          encoding: t.String(),
-          content: t.Optional(t.String()),
-          'content-type': t.Optional(t.String()),
-        })
-      ),
-      AIP: t.Optional(
-        t.Array(
-          t.Object({
-            algorithm: t.String(),
-            address: t.Optional(t.String()),
-          })
-        )
-      ),
-    })
-  ),
-  signers: t.Array(
-    t.Object({
-      idKey: t.String(),
-      rootAddress: t.String(),
-      currentAddress: t.String(),
-      addresses: t.Array(
-        t.Object({
-          address: t.String(),
-          txId: t.String(),
-          block: t.Optional(t.Number()),
-        })
-      ),
-      identity: t.String(),
-      identityTxId: t.String(),
-      block: t.Number(),
-      timestamp: t.Number(),
-      valid: t.Boolean(),
-    })
-  ),
-});
 
 export const channelMessagesEndpointDetail: OpenAPIV3.OperationObject = {
   tags: ['social'],
@@ -115,19 +9,19 @@ export const channelMessagesEndpointDetail: OpenAPIV3.OperationObject = {
       name: 'channelId',
       in: 'path',
       required: true,
-      schema: { type: 'string' as const },
+      schema: { type: 'string' },
       description: 'Channel identifier',
     },
     {
       name: 'page',
       in: 'query',
-      schema: { type: 'string' as const },
+      schema: { type: 'string' },
       description: 'Page number for pagination',
     },
     {
       name: 'limit',
       in: 'query',
-      schema: { type: 'string' as const },
+      schema: { type: 'string' },
       description: 'Number of messages per page',
     },
   ],
@@ -137,68 +31,7 @@ export const channelMessagesEndpointDetail: OpenAPIV3.OperationObject = {
       content: {
         'application/json': {
           schema: {
-            type: 'object' as const,
-            properties: {
-              channel: { type: 'string' as const },
-              page: { type: 'number' as const },
-              limit: { type: 'number' as const },
-              count: { type: 'number' as const },
-              results: {
-                type: 'array' as const,
-                items: {
-                  type: 'object' as const,
-                  properties: {
-                    tx: {
-                      type: 'object' as const,
-                      properties: {
-                        h: { type: 'string' as const },
-                      },
-                    },
-                    blk: {
-                      type: 'object' as const,
-                      properties: {
-                        i: { type: 'number' as const },
-                        t: { type: 'number' as const },
-                      },
-                    },
-                    MAP: {
-                      type: 'array' as const,
-                      items: {
-                        type: 'object' as const,
-                        properties: {
-                          app: { type: 'string' as const },
-                          type: { type: 'string' as const },
-                          channel: { type: 'string' as const },
-                          paymail: { type: 'string' as const },
-                        },
-                      },
-                    },
-                    B: {
-                      type: 'array' as const,
-                      items: {
-                        type: 'object' as const,
-                        properties: {
-                          encoding: { type: 'string' as const },
-                          Data: {
-                            type: 'object' as const,
-                            properties: {
-                              utf8: { type: 'string' as const },
-                              data: { type: 'string' as const },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-              signers: {
-                type: 'array' as const,
-                items: {
-                  $ref: '#/components/schemas/BapIdentity',
-                },
-              },
-            },
+            $ref: '#/components/schemas/ChannelMessage',
           },
         },
       },
@@ -208,9 +41,9 @@ export const channelMessagesEndpointDetail: OpenAPIV3.OperationObject = {
       content: {
         'application/json': {
           schema: {
-            type: 'object' as const,
+            type: 'object',
             properties: {
-              error: { type: 'string' as const },
+              error: { type: 'string' },
             },
           },
         },
@@ -221,14 +54,14 @@ export const channelMessagesEndpointDetail: OpenAPIV3.OperationObject = {
       content: {
         'application/json': {
           schema: {
-            type: 'object' as const,
+            type: 'object',
             properties: {
-              channel: { type: 'string' as const },
-              page: { type: 'number' as const },
-              limit: { type: 'number' as const },
-              count: { type: 'number' as const },
-              results: { type: 'array' as const, items: {} },
-              signers: { type: 'array' as const, items: {} },
+              channel: { type: 'string' },
+              page: { type: 'number' },
+              limit: { type: 'number' },
+              count: { type: 'number' },
+              results: { type: 'array', items: {} },
+              signers: { type: 'array', items: {} },
             },
           },
         },
@@ -236,12 +69,6 @@ export const channelMessagesEndpointDetail: OpenAPIV3.OperationObject = {
     },
   },
 };
-export const MessageListenParams = t.Object({
-  params: t.Object({
-    bapId: t.String(),
-    targetBapId: t.Optional(t.String()),
-  }),
-});
 
 export const messageListenEndpointDetail: OpenAPIV3.OperationObject = {
   tags: ['social'],
@@ -281,79 +108,6 @@ export const messageListenEndpointDetail: OpenAPIV3.OperationObject = {
     },
   },
 };
-
-export interface DMResponse {
-  bapID: string;
-  page: number;
-  limit: number;
-  count: number;
-  results: BmapTx[];
-  signers: BapIdentity[];
-}
-
-export const DMResponseSchema = t.Object({
-  bapID: t.String(),
-  page: t.Number(),
-  limit: t.Number(),
-  count: t.Number(),
-  results: t.Array(
-    t.Object({
-      timestamp: t.Number(),
-      tx: t.Object({
-        h: t.String(),
-      }),
-      blk: t.Object({
-        i: t.Number(),
-        t: t.Number(),
-      }),
-      MAP: t.Array(
-        t.Object({
-          app: t.String(),
-          type: t.String(),
-          bapID: t.String(),
-          encrypted: t.Optional(t.String()),
-          context: t.Literal('bapID'),
-        })
-      ),
-      B: t.Array(
-        t.Object({
-          Data: t.Object({
-            utf8: t.String(),
-            data: t.Optional(t.String()),
-          }),
-          encoding: t.String(),
-        })
-      ),
-      AIP: t.Optional(
-        t.Array(
-          t.Object({
-            algorithm: t.String(),
-            address: t.Optional(t.String()),
-          })
-        )
-      ),
-    })
-  ),
-  signers: t.Array(
-    t.Object({
-      idKey: t.String(),
-      rootAddress: t.String(),
-      currentAddress: t.String(),
-      addresses: t.Array(
-        t.Object({
-          address: t.String(),
-          txId: t.String(),
-          block: t.Optional(t.Number()),
-        })
-      ),
-      identity: t.String(),
-      identityTxId: t.String(),
-      block: t.Number(),
-      timestamp: t.Number(),
-      valid: t.Boolean(),
-    })
-  ),
-});
 
 export const directMessagesEndpointDetail: OpenAPIV3.OperationObject = {
   tags: ['social'],

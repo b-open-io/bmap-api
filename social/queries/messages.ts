@@ -3,7 +3,7 @@ import { getBAPIdByAddress, resolveSigners } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { client, readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
-import type { ChannelMessage, Message } from '../swagger/messages.js';
+import type { ChannelMessageResponse, BaseMessage as Message } from '../schemas.js';
 
 // Helper function to merge new signers into cache
 export async function updateSignerCache(newSigners: BapIdentity[]): Promise<void> {
@@ -22,7 +22,7 @@ export async function getChannelMessages(params: {
   channelId: string;
   page: number;
   limit: number;
-}): Promise<ChannelMessage> {
+}): Promise<ChannelMessageResponse> {
   const { channelId, page, limit } = params;
   const skip = (page - 1) * limit;
   const decodedChannelId = decodeURIComponent(channelId);
@@ -32,11 +32,14 @@ export async function getChannelMessages(params: {
 
   if (cached?.type === 'messages') {
     console.log('Cache hit for messages:', cacheKey);
-    return {
-      ...cached.value,
-      channel: channelId,
-      signers: cached.value.signers || [],
-    };
+    // Type guard to ensure we have the right cached value type
+    if ('page' in cached.value && 'results' in cached.value) {
+      return {
+        ...cached.value,
+        channel: channelId,
+        signers: cached.value.signers || [],
+      };
+    }
   }
 
   console.log('Cache miss for messages:', cacheKey);
@@ -113,7 +116,7 @@ export async function getChannelMessages(params: {
     identity: typeof s.identity === 'string' ? s.identity : JSON.stringify(s.identity) || '',
   }));
 
-  const response: ChannelMessage = {
+  const response: ChannelMessageResponse = {
     channel: channelId,
     page,
     limit,

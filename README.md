@@ -110,18 +110,51 @@ The API is documented using Swagger/OpenAPI specification. You can access the in
 - **OpenAPI Spec**: Available at `/docs/json`
 - **API Explorer**: Test endpoints directly from the browser
 
+### Core Social Endpoints
+
+#### Channels
+- `GET /channels` - List all available channels
+- `GET /channels/:channelId/messages` - Get messages from a specific channel
+
+#### Identity & Search
+- `GET /autofill` - Autocomplete/search for identities
+- `GET /identity/search` - Search identities by various criteria
+- `GET /identities` - List all identities
+
+#### Posts & Feed
+- `GET /feed/:bapId?` - Get user feed (optional BAP ID filter)
+- `GET /post/:txid` - Get a specific post by transaction ID
+- `POST /post/:txid/reply` - Reply to a post
+- `POST /post/:txid/like` - Like/react to a post
+- `GET /post/search` - Search posts
+- `GET /post/address/:address` - Get posts by Bitcoin address
+- `GET /post/bap/:bapId` - Get posts by BAP ID
+
+#### Likes & Reactions
+- `GET /bap/:bapId/like` - Get likes for a BAP ID
+- `POST /likes` - Create a like/reaction
+
+#### Friends & Relationships
+- `GET /friend/:bapId` - Get friend relationships for a BAP ID
+
+#### Direct Messages
+- `GET /@/:bapId/messages` - Get direct messages for a BAP ID
+- `GET /@/:bapId/messages/:targetBapId` - Get messages between two BAP IDs
+- `WS /@/:bapId/messages/listen` - WebSocket for real-time messages
+- `WS /@/:bapId/messages/:targetBapId/listen` - WebSocket for DM conversation
+
 ### API Categories
 
 #### Transactions
 - Query and retrieve transaction data
-- Real-time transaction updates
-- Transaction processing status
+- Real-time transaction updates via SSE
+- Transaction processing and ingestion
 
 #### Social Features
-- Friends management
-- Identity lookup
-- Like system
-- Message interactions
+- Friends management and social graph
+- Identity lookup and BAP integration
+- Like system with emoji reactions
+- Channel and direct messaging
 
 #### Charts
 - Dynamic chart generation

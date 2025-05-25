@@ -1,33 +1,37 @@
-import { t } from "elysia";
+import type { OpenAPIV3 } from 'openapi-types';
 
-export const PostQuery = t.Object({
-    page: t.Optional(t.String()),
-    limit: t.Optional(t.String()),
-  });
-
-export interface Post {
-    tx: {
-      h: string;
-    };
-    blk: {
-      i: number;
-      t: number;
-    };
-    MAP: {
-      app: string;
-      type: 'post';
-      paymail?: string;
-      context?: string;
-      channel?: string;
-      bapID?: string;
-    }[];
-    B: {
-      encoding: string;
-      content?: string;
-      'content-type'?: string;
-    }[];
-    AIP?: {
-      algorithm: string;
-      address: string;
-    }[];
-  }
+// OpenAPI endpoint documentation for posts
+export const postsEndpointDetail: OpenAPIV3.OperationObject = {
+  tags: ['social'],
+  description: 'Get posts from the blockchain',
+  summary: 'List posts',
+  parameters: [
+    {
+      name: 'page',
+      in: 'query',
+      schema: { type: 'number', default: 1 },
+      description: 'Page number for pagination',
+    },
+    {
+      name: 'limit',
+      in: 'query',
+      schema: { type: 'number', default: 20 },
+      description: 'Number of items per page',
+    },
+  ],
+  responses: {
+    '200': {
+      description: 'List of posts',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/post',
+            },
+          },
+        },
+      },
+    },
+  },
+};

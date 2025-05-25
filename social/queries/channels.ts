@@ -1,7 +1,7 @@
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
-import type { ChannelInfo } from '../swagger/channels.js';
+import type { ChannelInfo } from '../schemas.js';
 
 export async function getChannels(): Promise<ChannelInfo[]> {
   try {

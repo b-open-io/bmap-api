@@ -9,3 +9,8 @@ build
 
 
 playground.mongodb.js
+
+# Logs
+logs/
+*.log
+*.log.*

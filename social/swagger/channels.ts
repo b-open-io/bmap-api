@@ -1,24 +1,4 @@
-import { t } from 'elysia';
 import type { OpenAPIV3 } from 'openapi-types';
-import type { ChannelMessage } from './messages.js';
-
-export interface ChannelInfo {
-  channel: string;
-  creator: string;
-  last_message: string;
-  last_message_time: number;
-  messages: number;
-}
-
-export const ChannelResponseSchema = t.Array(
-  t.Object({
-    channel: t.String(),
-    creator: t.Union([t.String(), t.Null()]),
-    last_message: t.Union([t.String(), t.Null()]),
-    last_message_time: t.Number(),
-    messages: t.Number(),
-  })
-);
 
 export const channelsEndpointDetail: OpenAPIV3.OperationObject = {
   tags: ['social'],
@@ -30,33 +10,9 @@ export const channelsEndpointDetail: OpenAPIV3.OperationObject = {
       content: {
         'application/json': {
           schema: {
-            type: 'array' as const,
+            type: 'array',
             items: {
-              type: 'object' as const,
-              properties: {
-                channel: {
-                  type: 'string' as const,
-                  description: 'Channel identifier',
-                },
-                creator: {
-                  type: 'string' as const,
-                  nullable: true,
-                  description: 'Channel creator paymail',
-                },
-                last_message: {
-                  type: 'string' as const,
-                  nullable: true,
-                  description: 'Most recent message',
-                },
-                last_message_time: {
-                  type: 'number' as const,
-                  description: 'Timestamp of last message',
-                },
-                messages: {
-                  type: 'number' as const,
-                  description: 'Total message count',
-                },
-              },
+              $ref: '#/components/schemas/channelInfo',
             },
           },
         },
@@ -67,33 +23,10 @@ export const channelsEndpointDetail: OpenAPIV3.OperationObject = {
       content: {
         'application/json': {
           schema: {
-            type: 'array' as const,
-            items: {
-              type: 'object' as const,
-              properties: {
-                channel: {
-                  type: 'string' as const,
-                  description: 'Channel identifier',
-                },
-                creator: {
-                  type: 'string' as const,
-                  nullable: true,
-                  description: 'Channel creator paymail',
-                },
-                last_message: {
-                  type: 'string' as const,
-                  nullable: true,
-                  description: 'Most recent message',
-                },
-                last_message_time: {
-                  type: 'number' as const,
-                  description: 'Timestamp of last message',
-                },
-                messages: {
-                  type: 'number' as const,
-                  description: 'Total message count',
-                },
-              },
+            type: 'object',
+            properties: {
+              code: { type: 'string' },
+              message: { type: 'string' },
             },
           },
         },
@@ -101,7 +34,3 @@ export const channelsEndpointDetail: OpenAPIV3.OperationObject = {
     },
   },
 };
-
-export const ChannelParams = t.Object({
-  channelId: t.String(),
-});
