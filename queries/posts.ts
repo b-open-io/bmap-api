@@ -1,6 +1,7 @@
 import type { BmapTx } from 'bmapjs';
 import { type BapIdentity, getBAPIdentites, getSigners } from '../bap.js';
 import { getDbo } from '../db.js';
+import { NotFoundError } from '../middleware/errorHandler.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
 import type { SearchParams } from '../social/queries/types.js';
 
@@ -38,20 +39,39 @@ export interface Meta {
   replies: number;
 }
 
-export interface PostResponse {
-  post: BmapTx;
-  signers: BapIdentity[];
-  meta: Meta;
+// Helper function to normalize post data
+function normalizePost(post: BmapTx): BmapTx {
+  return {
+    ...post,
+    tx: { h: post.tx?.h || '' },
+    blk: post.blk || { i: 0, t: 0 },
+    timestamp: post.timestamp || post.blk?.t || Math.floor(Date.now() / 1000),
+    MAP:
+      post.MAP?.map((m) => ({
+        ...m,
+        bapID: m.bapID || '',
+      })) || [],
+    B:
+      post.B?.map((b) => ({
+        encoding: b?.encoding || '',
+        content: b?.content || '',
+        'content-type': b?.['content-type'] || '',
+      })) || [],
+  };
 }
 
-export async function getPost(txid: string): Promise<PostResponse> {
-  const dbo = await getDbo();
+// Helper function to create the common aggregation pipeline for posts with meta
+function createPostMetaPipeline(skipSteps?: unknown[]): unknown[] {
+  const pipeline = [];
 
-  const aggregationPipeline = [
-    // Step 1: Match the posts we want
-    { $match: { _id: txid } },
+  // Add any skip steps (like match, sort, skip, limit)
+  if (skipSteps) {
+    pipeline.push(...skipSteps);
+  }
 
-    // Step 2: Put the post in a property called "post"
+  // Common pipeline steps
+  pipeline.push(
+    // Put the post in a property called "post"
     {
       $replaceRoot: {
         newRoot: {
@@ -60,7 +80,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
       },
     },
 
-    // Step 3: Lookup to get replies
+    // Lookup to get replies
     {
       $lookup: {
         from: 'post',
@@ -70,7 +90,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
       },
     },
 
-    // Step 4: Lookup to get likes
+    // Lookup to get likes
     {
       $lookup: {
         from: 'like',
@@ -80,17 +100,17 @@ export async function getPost(txid: string): Promise<PostResponse> {
       },
     },
 
-    // Step 5: Calculate total likes before unwinding
+    // Calculate total likes before unwinding
     {
       $addFields: {
         totalLikes: { $size: { $ifNull: ['$likes', []] } }, // Count the total number of likes
       },
     },
 
-    // Step 6: Unwind likes to process emoji reactions
+    // Unwind likes to process emoji reactions
     { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
 
-    // Step 7: Group by post ID and emoji to count reactions
+    // Group by post ID and emoji to count reactions
     {
       $group: {
         _id: {
@@ -118,7 +138,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
       },
     },
 
-    // Step 8: Group by post ID to consolidate reactions
+    // Group by post ID to consolidate reactions
     {
       $group: {
         _id: '$_id.postId',
@@ -147,7 +167,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
       },
     },
 
-    // Step 9: Add the meta property with replies, likes, and reactions
+    // Add the meta property with replies, likes, and reactions
     {
       $addFields: {
         meta: {
@@ -157,13 +177,30 @@ export async function getPost(txid: string): Promise<PostResponse> {
           reactions: '$reactions', // Add the reactions array
         },
       },
-    },
-  ];
+    }
+  );
+
+  return pipeline;
+}
+
+export interface PostResponse {
+  post: BmapTx;
+  signers: BapIdentity[];
+  meta: Meta;
+}
+
+export async function getPost(txid: string): Promise<PostResponse> {
+  const dbo = await getDbo();
+
+  const aggregationPipeline = createPostMetaPipeline([
+    // Match the posts we want
+    { $match: { _id: txid } },
+  ]);
 
   const posts = await dbo.collection<BmapTx>('post').aggregate(aggregationPipeline).toArray();
 
   if (!posts.length) {
-    throw new Error(`Post with txid ${txid} not found`);
+    throw new NotFoundError(`Post with txid ${txid} not found`);
   }
 
   const { post, meta } = posts[0];
@@ -177,22 +214,7 @@ export async function getPost(txid: string): Promise<PostResponse> {
   const signers = await getSigners([...signerAddresses]);
 
   return {
-    post: {
-      ...post,
-      tx: { h: post.tx?.h || '' },
-      blk: post.blk || { i: 0, t: 0 },
-      timestamp: post.timestamp || post.blk?.t || Math.floor(Date.now() / 1000),
-      MAP: post.MAP.map((m) => ({
-        ...m,
-        bapID: m.bapID || '',
-      })),
-      B:
-        post.B?.map((b) => ({
-          encoding: b?.encoding || '',
-          content: b?.content || '',
-          'content-type': b?.['content-type'] || '',
-        })) || [],
-    },
+    post: normalizePost(post),
     signers,
     meta,
   };
@@ -207,126 +229,15 @@ export async function getReplies({
   const skip = (page - 1) * limit;
   const query = { 'MAP.tx': txid };
 
-  // Start with a basic pipeline
-  const aggregationPipeline = [
-    // Step 1: Match the posts we want
+  const aggregationPipeline = createPostMetaPipeline([
+    // Match the posts we want
     { $match: query },
-
-    // Step 2: Sort by timestamp descending (newest first)
+    // Sort by timestamp descending (newest first)
     { $sort: { timestamp: -1 } },
-
-    // Step 3: Pagination
+    // Pagination
     { $skip: skip },
     { $limit: limit },
-
-    // Step 4: Put the post in a property called "post"
-    {
-      $replaceRoot: {
-        newRoot: {
-          post: '$$ROOT', // Store the entire document as "post"
-        },
-      },
-    },
-
-    // Step 5: Lookup to get replies
-    {
-      $lookup: {
-        from: 'post',
-        localField: 'post._id',
-        foreignField: 'MAP.tx',
-        as: 'replies',
-      },
-    },
-
-    // Step 6: Lookup to get likes
-    {
-      $lookup: {
-        from: 'like',
-        localField: 'post._id',
-        foreignField: 'MAP.tx',
-        as: 'likes',
-      },
-    },
-
-    // Step 7: Calculate total likes before unwinding
-    {
-      $addFields: {
-        totalLikes: { $size: { $ifNull: ['$likes', []] } }, // Count the total number of likes
-      },
-    },
-
-    // Step 8: Unwind likes to process emoji reactions
-    { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
-
-    // Step 9: Group by post ID and emoji to count reactions
-    {
-      $group: {
-        _id: {
-          postId: '$post._id',
-          emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] }, // Extract the first element of the emoji array
-        },
-        post: { $first: '$post' },
-        replies: { $first: '$replies' }, // Preserve the replies field
-        totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
-        count: {
-          $sum: {
-            $cond: [
-              {
-                $and: [
-                  { $ne: ['$likes.MAP.emoji', null] },
-                  { $ne: ['$likes.MAP.emoji', undefined] },
-                  { $ne: ['$likes.MAP.emoji', ''] }, // Exclude empty strings
-                ],
-              },
-              1,
-              0,
-            ],
-          },
-        },
-      },
-    },
-
-    // Step 10: Group by post ID to consolidate reactions
-    {
-      $group: {
-        _id: '$_id.postId',
-        post: { $first: '$post' },
-        replies: { $first: '$replies' }, // Preserve the replies field
-        totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
-        reactions: {
-          $push: {
-            $cond: [
-              {
-                $and: [
-                  { $ne: ['$_id.emoji', null] },
-                  { $ne: ['$_id.emoji', undefined] },
-                  { $ne: ['$_id.emoji', ''] },
-                  { $ifNull: ['$_id.emoji', false] },
-                ],
-              },
-              {
-                emoji: '$_id.emoji', // Use the flattened emoji value
-                count: '$count',
-              },
-              '$$REMOVE', // Exclude likes without a valid emoji
-            ],
-          },
-        },
-      },
-    },
-
-    // Step 11: Add the meta property with replies, likes, and reactions
-    {
-      $addFields: {
-        meta: {
-          tx: '$post.tx.h',
-          replies: { $size: { $ifNull: ['$replies', []] } }, // Count the number of replies
-          likes: '$totalLikes', // Use the pre-calculated total likes count
-          reactions: '$reactions', // Add the reactions array
-        },
-      },
-    },
-  ];
+  ]);
 
   const [results, count] = await Promise.all([
     dbo.collection('post').aggregate(aggregationPipeline).toArray(),
@@ -351,21 +262,9 @@ export async function getReplies({
     page,
     limit,
     count,
-    results: results.map((doc) => ({
-      ...doc.post,
-      tx: { h: doc.post.tx?.h || '' },
-      blk: doc.post.blk || { i: 0, t: 0 },
-      timestamp: doc.post.timestamp || doc.post.blk?.t || Math.floor(Date.now() / 1000),
-      MAP: doc.post.MAP,
-      B:
-        doc.post.B?.map((b) => ({
-          encoding: b?.encoding || '',
-          content: b?.content || '',
-          'content-type': b?.['content-type'] || '',
-        })) || [],
-    })),
+    results: results.map((doc) => normalizePost(doc.post)),
     signers,
-    meta: results.map((doc) => doc.meta), // We'll fill this in as we build the pipeline
+    meta: results.map((doc) => doc.meta),
   };
 }
 
@@ -419,135 +318,21 @@ export async function getPosts({
     } else {
       const identity = await fetchBapIdentityData(bapId);
       if (!identity?.currentAddress) {
-        console.log('No current address found for BAP ID:', bapId, identity);
         throw new Error('Invalid BAP identity data');
       }
       query['AIP.address'] = { $in: identity.addresses.map((a) => a.address) };
     }
   }
 
-  console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);
-
-  // Start with a basic pipeline
-  const aggregationPipeline = [
-    // Step 1: Match the posts we want
+  const aggregationPipeline = createPostMetaPipeline([
+    // Match the posts we want
     { $match: query },
-
-    // Step 2: Sort by timestamp descending (newest first)
+    // Sort by timestamp descending (newest first)
     { $sort: { timestamp: -1 } },
-
-    // Step 3: Pagination
+    // Pagination
     { $skip: skip },
     { $limit: limit },
-
-    // Step 4: Put the post in a property called "post"
-    {
-      $replaceRoot: {
-        newRoot: {
-          post: '$$ROOT', // Store the entire document as "post"
-        },
-      },
-    },
-
-    // Step 5: Lookup to get replies
-    {
-      $lookup: {
-        from: 'post',
-        localField: 'post._id',
-        foreignField: 'MAP.tx',
-        as: 'replies',
-      },
-    },
-
-    // Step 6: Lookup to get likes
-    {
-      $lookup: {
-        from: 'like',
-        localField: 'post._id',
-        foreignField: 'MAP.tx',
-        as: 'likes',
-      },
-    },
-
-    // Step 7: Calculate total likes before unwinding
-    {
-      $addFields: {
-        totalLikes: { $size: { $ifNull: ['$likes', []] } }, // Count the total number of likes
-      },
-    },
-
-    // Step 8: Unwind likes to process emoji reactions
-    { $unwind: { path: '$likes', preserveNullAndEmptyArrays: true } },
-
-    // Step 9: Group by post ID and emoji to count reactions
-    {
-      $group: {
-        _id: {
-          postId: '$post._id',
-          emoji: { $arrayElemAt: ['$likes.MAP.emoji', 0] }, // Extract the first element of the emoji array
-        },
-        post: { $first: '$post' },
-        replies: { $first: '$replies' }, // Preserve the replies field
-        totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
-        count: {
-          $sum: {
-            $cond: [
-              {
-                $and: [
-                  { $ne: ['$likes.MAP.emoji', null] },
-                  { $ne: ['$likes.MAP.emoji', undefined] },
-                  { $ne: ['$likes.MAP.emoji', ''] }, // Exclude empty strings
-                ],
-              },
-              1,
-              0,
-            ],
-          },
-        },
-      },
-    },
-
-    // Step 10: Group by post ID to consolidate reactions
-    {
-      $group: {
-        _id: '$_id.postId',
-        post: { $first: '$post' },
-        replies: { $first: '$replies' }, // Preserve the replies field
-        totalLikes: { $first: '$totalLikes' }, // Preserve the total likes count
-        reactions: {
-          $push: {
-            $cond: [
-              {
-                $and: [
-                  { $ne: ['$_id.emoji', null] },
-                  { $ne: ['$_id.emoji', undefined] },
-                  { $ne: ['$_id.emoji', ''] },
-                  { $ifNull: ['$_id.emoji', false] },
-                ],
-              },
-              {
-                emoji: '$_id.emoji', // Use the flattened emoji value
-                count: '$count',
-              },
-              '$$REMOVE', // Exclude likes without a valid emoji
-            ],
-          },
-        },
-      },
-    },
-
-    // Step 11: Add the meta property with replies, likes, and reactions
-    {
-      $addFields: {
-        meta: {
-          tx: '$post.tx.h',
-          replies: { $size: { $ifNull: ['$replies', []] } }, // Count the number of replies
-          likes: '$totalLikes', // Use the pre-calculated total likes count
-          reactions: '$reactions', // Add the reactions array
-        },
-      },
-    },
-  ];
+  ]);
 
   // const [results, count] = await Promise.all([
   //     dbo.collection('post').aggregate(aggregationPipeline).toArray(),
@@ -586,21 +371,9 @@ export async function getPosts({
     page,
     limit,
     count: results.length,
-    results: results.map((doc) => ({
-      ...doc.post,
-      tx: { h: doc.post.tx?.h || '' },
-      blk: doc.post.blk || { i: 0, t: 0 },
-      timestamp: doc.post.timestamp || doc.post.blk?.t || Math.floor(Date.now() / 1000),
-      MAP: doc.post.MAP,
-      B:
-        doc.post.B?.map((b) => ({
-          encoding: b?.encoding || '',
-          content: b?.content || '',
-          'content-type': b?.['content-type'] || '',
-        })) || [],
-    })),
+    results: results.map((doc) => normalizePost(doc.post)),
     signers,
-    meta: results.map((doc) => doc.meta), // We'll fill this in as we build the pipeline
+    meta: results.map((doc) => doc.meta),
   };
 }
 
@@ -608,7 +381,6 @@ async function getFollows(bapId: string) {
   const dbo = await getDbo();
   const identity = await fetchBapIdentityData(bapId);
   if (!identity?.currentAddress) {
-    console.log('No current address found for BAP ID:', bapId, identity);
     throw new Error('Invalid BAP identity data');
   }
 
@@ -682,30 +454,13 @@ async function getFollows(bapId: string) {
 }
 
 export async function searchPosts({ q, limit = 10, offset = 0 }: SearchParams): Promise<BmapTx[]> {
-  try {
-    const db = await getDbo();
-    const pipeline = [
-      { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
-      { $skip: offset },
-      { $limit: limit },
-    ];
-    const results = await db.collection('post').aggregate(pipeline).toArray();
+  const db = await getDbo();
+  const pipeline = [
+    { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
+    { $skip: offset },
+    { $limit: limit },
+  ];
+  const results = await db.collection('post').aggregate(pipeline).toArray();
 
-    return results.map((doc) => ({
-      ...doc.post,
-      tx: { h: doc.post.tx?.h || '' },
-      blk: doc.post.blk || { i: 0, t: 0 },
-      timestamp: doc.post.timestamp || doc.post.blk?.t || Math.floor(Date.now() / 1000),
-      MAP: doc.post.MAP,
-      B:
-        doc.post.B?.map((b) => ({
-          encoding: b?.encoding || '',
-          content: b?.content || '',
-          'content-type': b?.['content-type'] || '',
-        })) || [],
-    }));
-  } catch (e) {
-    console.log(e);
-    throw e;
-  }
+  return results.map((doc) => normalizePost(doc.post || doc));
 }

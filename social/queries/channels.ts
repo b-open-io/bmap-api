@@ -8,13 +8,9 @@ export async function getChannels(): Promise<ChannelInfo[]> {
     const cacheKey = 'channels';
     const cached = await readFromRedis<CacheValue>(cacheKey);
 
-    console.log('channels cache key', cacheKey);
     if (cached?.type === 'channels') {
-      console.log('Cache hit for channels');
       return cached.value;
     }
-
-    console.log('Cache miss for channels');
     const db = await getDbo();
 
     try {
@@ -49,9 +45,7 @@ export async function getChannels(): Promise<ChannelInfo[]> {
         },
       ];
 
-      console.log('Executing MongoDB aggregation');
       const results = await db.collection('message').aggregate(pipeline).toArray();
-      console.log('Aggregation results:', results.length);
 
       const channels = results.map((r) => ({
         channel: r.channel,

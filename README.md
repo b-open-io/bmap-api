@@ -1,17 +1,19 @@
 # BMAP API
 
-A high-performance Bitcoin transaction processing and serving API built with Bun and Elysia.js. This service processes Bitcoin SV transactions, providing social features, caching, and real-time updates.
+A high-performance Bitcoin SV transaction processing and serving API built with Bun and Elysia.js. This service processes Bitcoin transactions, provides social features (friends, likes, channels), caching, and real-time updates via Server-Sent Events (SSE).
 
 ## Features
 
 - **Transaction Processing**: Ingest and store Bitcoin transactions with MongoDB and Redis caching
-- **Social Features**: Friends, identities, and likes system
-- **Real-time Updates**: Stream Bitcoin transactions via JungleBus
+- **Social Features**: Complete social graph with friends, identities, likes, and messaging
+- **Real-time Updates**: Stream Bitcoin transactions via JungleBus and SSE
 - **Dynamic Charts**: Generate transaction visualizations using Chart.js
 - **BAP Integration**: Bitcoin Attestation Protocol identity management
 - **High Performance**: Built with Bun runtime and Elysia.js framework
 - **API Documentation**: Interactive Swagger/OpenAPI documentation
 - **Native TypeScript**: Direct TypeScript execution with Bun
+- **Comprehensive Logging**: File-based logging with rotation and compression
+- **Error Handling**: Standardized error responses with proper HTTP status codes
 
 ## Prerequisites
 
@@ -49,9 +51,9 @@ Start the development server with hot reload:
 bun run dev
 ```
 
-The server will start at `http://localhost:3000`. You can access:
-- API at `http://localhost:3000/`
-- Swagger documentation at `http://localhost:3000/swagger`
+The server will start at `http://localhost:3055`. You can access:
+- API at `http://localhost:3055/`
+- Swagger documentation at `http://localhost:3055/docs`
 
 ### Scripts
 
@@ -61,138 +63,344 @@ The server will start at `http://localhost:3000`. You can access:
 - `bun run lint`: Run Biome checks
 - `bun run lint:fix`: Auto-fix Biome issues
 - `bun run test-redis`: Test Redis connectivity
-- `bun run prepare-hooks`: Set up Git hooks
 
-### Code Quality
+### AI Assistant Integration
 
-The project uses several tools to maintain code quality:
+This project includes a `CLAUDE.md` file that provides context and guidance for AI assistants (like Claude) when working with this codebase. This helps maintain consistency and best practices across AI-assisted development sessions.
 
-- **TypeScript**: Native support via Bun
-- **Biome**: For linting and formatting
-- **Git Hooks**: Pre-commit and pre-push checks
-- **MongoDB Indexes**: For query optimization
-- **Swagger/OpenAPI**: API documentation and testing
+## Architecture Overview
 
-### Development Guidelines
+### Current Structure (Post-Refactoring)
 
-1. **Code Style**
-   - Follow Biome formatting rules
-   - Use TypeScript types and interfaces
-   - Document complex logic
-   - Keep files focused and modular
-   - Document API endpoints using Swagger decorators
+The codebase has been significantly refactored for better maintainability, consistency, and performance:
 
-2. **Error Handling**
-   - Use typed error responses
-   - Implement proper error boundaries
-   - Log errors with context
-   - Handle edge cases explicitly
+```
+/
+├── index.ts                    # Main entry point with core transaction APIs
+├── social/                     # Social features module
+│   ├── routes.ts              # All social API endpoints
+│   ├── schemas.ts             # Consolidated TypeScript interfaces and TypeBox schemas
+│   ├── queries/               # Database query functions
+│   └── swagger/               # Swagger documentation per feature
+├── config/                    # Configuration management
+│   └── constants.ts           # All magic numbers, URLs, and configuration
+├── middleware/                # Reusable middleware
+│   └── errorHandler.ts        # Standardized error handling
+├── queries/                   # Core query functions (posts, messages)
+├── schemas/                   # Legacy schema files (being phased out)
+├── public/                    # Static assets
+├── logger.ts                  # Logging system with file rotation
+├── cache.ts                   # Redis caching utilities
+├── bap.ts                     # Bitcoin Attestation Protocol integration
+├── process.ts                 # Transaction processing logic
+├── chart.ts                   # Chart generation for visualizations
+├── htmx.ts                    # HTMX routes for dynamic UI
+└── db.ts                      # MongoDB connection and utilities
+```
 
-3. **Performance**
-   - Use Redis caching appropriately
-   - Implement proper indexes
-   - Consider batch processing
-   - Monitor memory usage
+### Key Architectural Improvements
 
-4. **Security**
-   - Validate input data
-   - Sanitize database queries
-   - Use proper error messages
-   - Consider rate limiting
+1. **Centralized Configuration**
+   - All constants moved to `/config/constants.ts`
+   - No more hardcoded values scattered throughout codebase
+   - Environment-specific settings properly managed
 
-## API Documentation
+2. **Standardized Error Handling**
+   - Custom error classes (`NotFoundError`, `ValidationError`, `ServerError`)
+   - Consistent error response format across all endpoints
+   - Proper HTTP status codes and error messages
 
-The API is documented using Swagger/OpenAPI specification. You can access the interactive documentation at `/docs` when the server is running.
+3. **Schema Consolidation**
+   - All TypeScript interfaces and TypeBox schemas in `/social/schemas.ts`
+   - Consolidated schema definitions into single 587-line file
+   - Better type safety and consistency with accurate API response types
 
-### Available Documentation
+4. **Optimized Database Queries**
+   - Extracted duplicate aggregation pipeline logic into reusable functions
+   - `createPostMetaPipeline()` and `normalizePost()` helpers
+   - Reduced code duplication in posts queries
 
-- **Interactive UI**: Available at `/docs`
-- **OpenAPI Spec**: Available at `/docs/json`
-- **API Explorer**: Test endpoints directly from the browser
+5. **Improved Logging**
+   - File-based logging with automatic rotation (10MB files, keep last 5)
+   - Gzip compression for archived logs
+   - Structured logging format with timestamps
 
-### Core Social Endpoints
+### API Structure Analysis
 
-#### Channels
-- `GET /channels` - List all available channels
-- `GET /channels/:channelId/messages` - Get messages from a specific channel
+#### Strengths
 
-#### Identity & Search
-- `GET /autofill` - Autocomplete/search for identities
-- `GET /identity/search` - Search identities by various criteria
-- `GET /identities` - List all identities
+✅ **Well-Organized Social Features**
+- Clean separation of social functionality in `/social/` directory
+- Comprehensive social graph features (friends, likes, channels, DMs)
+- Good use of TypeBox for request/response validation
 
-#### Posts & Feed
-- `GET /feed/:bapId?` - Get user feed (optional BAP ID filter)
-- `GET /post/:txid` - Get a specific post by transaction ID
-- `POST /post/:txid/reply` - Reply to a post
-- `POST /post/:txid/like` - Like/react to a post
-- `GET /post/search` - Search posts
-- `GET /post/address/:address` - Get posts by Bitcoin address
-- `GET /post/bap/:bapId` - Get posts by BAP ID
+✅ **Comprehensive Caching Strategy**
+- Redis caching for transactions, identities, and social data
+- Smart cache invalidation patterns
+- Performance-optimized cache keys
 
-#### Likes & Reactions
-- `GET /bap/:bapId/like` - Get likes for a BAP ID
-- `POST /likes` - Create a like/reaction
+✅ **Real-time Capabilities**
+- WebSocket support for messaging
+- Server-Sent Events for transaction streaming
+- JungleBus integration for live blockchain data
 
-#### Friends & Relationships
-- `GET /friend/:bapId` - Get friend relationships for a BAP ID
+✅ **Good Documentation**
+- Interactive Swagger UI with detailed endpoint documentation
+- Well-documented API responses and error codes
+- Examples and schema definitions
 
-#### Direct Messages
-- `GET /@/:bapId/messages` - Get direct messages for a BAP ID
-- `GET /@/:bapId/messages/:targetBapId` - Get messages between two BAP IDs
-- `WS /@/:bapId/messages/listen` - WebSocket for real-time messages
-- `WS /@/:bapId/messages/:targetBapId/listen` - WebSocket for DM conversation
+#### Areas for Improvement
 
-### API Categories
+🔄 **Query Optimization Needed**
+- Some N+1 query patterns in likes endpoints
+- Missing database indexes configuration
+- Duplicate signer resolution logic could be extracted
 
-#### Transactions
-- Query and retrieve transaction data
-- Real-time transaction updates via SSE
-- Transaction processing and ingestion
+🔄 **Input Validation**
+- Missing query parameter validation schemas
+- Some endpoints lack proper input sanitization
+- Need to standardize validation patterns
 
-#### Social Features
-- Friends management and social graph
-- Identity lookup and BAP integration
-- Like system with emoji reactions
-- Channel and direct messaging
-
-#### Charts
-- Dynamic chart generation
-- Time series visualizations
-- Custom chart parameters
-
-## Architecture
+🔄 **API Consistency**
+- Mixed response formats between core and social endpoints
+- Some endpoints return arrays, others return wrapped objects
+- Need to standardize pagination patterns
 
 ### Data Storage
 
 **MongoDB Collections**:
+- `post`: Blog posts and content
+- `like`: Like/reaction data with emoji support
+- `message`: Channel and direct messages
+- `follow`/`unfollow`: Social graph relationships
+- `identities`: BAP identity data
 - `c`: Confirmed transactions
 - `u`: Unconfirmed transactions
 
-**Redis Caching**:
-- Transaction data
-- BAP identities
-- Social graph information
+**Redis Caching Patterns**:
+```
+tx:{txid}                    # Transaction data
+identity:{bapId}             # BAP identity information
+messages:{channel}:{page}    # Channel messages
+signer-{address}             # Signer cache
+autofill                     # Search autocomplete cache
+```
 
 ### Core Components
 
-- **Transaction Processing**: Handles ingestion and normalization
-- **Caching Layer**: Manages Redis caching and invalidation
-- **Social Features**: Handles friend relationships and likes
-- **Chart Generation**: Creates dynamic visualizations
-- **BAP Integration**: Manages Bitcoin identities
-- **API Documentation**: Swagger/OpenAPI integration
+1. **Transaction Processing** (`process.ts`)
+   - Bitcoin transaction ingestion and normalization
+   - BMAP protocol support
+   - Automatic collection routing
+
+2. **Caching Layer** (`cache.ts`)
+   - Redis wrapper with TTL management
+   - Type-safe cache operations
+   - Automatic serialization/deserialization
+
+3. **Social Features** (`/social/`)
+   - Friends/followers management
+   - Like system with emoji reactions
+   - Channel-based messaging
+   - Direct messaging with encryption support
+
+4. **BAP Integration** (`bap.ts`)
+   - Bitcoin Attestation Protocol identity resolution
+   - Address-to-identity mapping
+   - Signer resolution for transactions
+
+5. **Chart Generation** (`chart.ts`)
+   - Dynamic visualization creation
+   - Time series data processing
+   - Custom chart parameters
+
+## API Documentation
+
+### Core Endpoints
+
+#### Transaction APIs (Main Routes)
+- `GET /tx/:txid` - Get transaction by ID
+- `GET /post/:postId` - Get specific post
+- `GET /bap/:txid` - Get BAP data for transaction
+- `GET /chart/:type` - Generate charts
+- `GET /explorer/:collection` - Visual query builder
+
+#### Social APIs (All require `/social` prefix)
+
+**Channel Communication**
+- `GET /social/channels` - List all channels
+- `GET /social/channels/:channelId/messages` - Channel messages (⚠️ Recently fixed to return `{results, signers}`)
+
+**Identity & Search**
+- `GET /social/autofill?q=` - Autocomplete search (identities + posts)
+- `GET /social/identity/search?q=` - Search identities
+- `GET /social/identities` - List all identities with pagination
+
+**Posts & Content**
+- `GET /social/post/:txid` - Get post with metadata (likes, replies, reactions)
+- `GET /social/post/:txid/reply` - Get replies to a post
+- `POST /social/post/:txid/like` - Like/react to a post
+- `GET /social/post/search?q=` - Search posts
+- `GET /social/post/address/:address` - Posts by Bitcoin address
+- `GET /social/post/bap/:bapId` - Posts by BAP identity
+
+**Social Graph**
+- `GET /social/friend/:bapId` - Friend relationships
+- `GET /social/bap/:bapId/like` - User's likes
+
+**Direct Messages**
+- `GET /social/@/:bapId/messages` - User's DM conversations
+- `GET /social/@/:bapId/messages/:targetBapId` - Specific conversation
+- `WS /social/@/:bapId/messages/listen` - Real-time DM listening
+
+### Response Formats
+
+**Standard Success Response**:
+```json
+{
+  "status": "OK",
+  "result": { ... }
+}
+```
+
+**Paginated Response**:
+```json
+{
+  "page": 1,
+  "limit": 100,
+  "count": 250,
+  "results": [...],
+  "signers": [...]
+}
+```
+
+**Error Response** (Standardized):
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Resource not found"
+  }
+}
+```
+
+## Development Guidelines
+
+### Code Quality Standards
+
+1. **TypeScript First**
+   - Strict typing with proper interfaces
+   - No `any` types (use `unknown` when necessary)
+   - Comprehensive type definitions in `/social/schemas.ts`
+
+2. **Error Handling**
+   - Use custom error classes (`NotFoundError`, `ValidationError`, `ServerError`)
+   - Never return raw errors to clients
+   - Log errors with appropriate context
+
+3. **Performance**
+   - Use Redis caching appropriately
+   - Implement database indexes
+   - Avoid N+1 queries
+   - Use aggregation pipelines for complex queries
+
+4. **API Design**
+   - Follow RESTful conventions
+   - Use consistent response formats
+   - Document all endpoints with Swagger
+   - Validate input parameters
+
+5. **Database Patterns**
+   - Use the helper functions for common queries
+   - Leverage `createPostMetaPipeline()` for post metadata
+   - Use `normalizePost()` for consistent post formatting
+   - Cache frequently accessed data
+
+### Common Patterns
+
+**Database Query with Caching**:
+```typescript
+const cacheKey = `prefix:${id}:${page}:${limit}`;
+const cached = await readFromRedis<CacheValue>(cacheKey);
+
+if (cached?.type === 'expected-type') {
+  return cached.value;
+}
+
+// Perform database query
+const result = await db.collection().aggregate(pipeline).toArray();
+
+await saveToRedis<CacheValue>(cacheKey, {
+  type: 'expected-type',
+  value: result,
+});
+
+return result;
+```
+
+**Error Handling**:
+```typescript
+try {
+  // ... operation
+} catch (error) {
+  if (error instanceof NotFoundError) {
+    throw error; // Re-throw known errors
+  }
+  throw new ServerError('Operation failed');
+}
+```
+
+## Testing
+
+Currently testing is manual via Swagger UI. Future improvements should include:
+- Unit tests for utility functions
+- Integration tests for API endpoints
+- Performance testing for database queries
+- Redis connectivity testing
 
 ## Contributing
 
 1. Fork the repository
 2. Create your feature branch
-3. Run tests and ensure code quality:
+3. Follow the coding standards
+4. Run quality checks:
    ```bash
+   bun run typecheck
    bun run lint
-   bun run build
    ```
-4. Submit a pull request
+5. Test your changes via Swagger UI
+6. Submit a pull request
+
+## Known Issues & Technical Debt
+
+1. **Schema Coverage**: ~60% of endpoints lack response schemas for Swagger documentation
+2. **Query Optimization**: Some endpoints have N+1 query patterns
+3. **Input Validation**: Missing schemas for query parameters
+4. **Database Indexes**: Not all collections have optimal indexes
+5. **API Consistency**: Mixed response formats across endpoints
+6. **Testing**: No automated test suite
+
+### Swagger Documentation Status
+
+✅ **The Swagger documentation is now significantly more accurate** after comprehensive testing and fixes:
+
+**Recently Fixed:**
+- ✅ Channel messages endpoint (`/channels/:channelId/messages`) - Fixed response format regression
+- ✅ Social routes mounting - Added proper `/social` prefix grouping
+- ✅ Identities endpoint (`/social/identities`) - Fixed schema to match actual response structure
+- ✅ Post endpoints schema coverage (partial)
+
+**Working Endpoints:**
+- ✅ `/docs` - Swagger UI loads properly
+- ✅ `/social/channels` - Returns 100+ channels
+- ✅ `/social/identities` - Returns identity data with proper schema validation
+- ✅ `/social/channels/:channelId/messages` - Returns `{results: [], signers: []}` format
+
+**Still Missing Schemas:**
+- ❌ Core transaction endpoints (`/tx/:txid`, `/bap/:txid`)
+- ❌ Some social endpoints (`/friend/:bapId`, search endpoints)
+
+See `SCHEMA_AUDIT.md` for detailed testing report.
 
 ## License
 
@@ -200,4 +408,4 @@ The API is documented using Swagger/OpenAPI specification. You can access the in
 
 ## Support
 
-[Add Support Information] 
+[Add Support Information]

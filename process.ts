@@ -79,6 +79,29 @@ export const processTransaction = async (
     //   // t.bapId = bapId;
     // }
 
+    // Transform B.Data to B.content for consistency
+    if (t.B && Array.isArray(t.B)) {
+      t.B = t.B.map((b: any) => {
+        if (b.Data) {
+          // Convert Data structure to content
+          const content = b.Data.utf8 || b.Data.base64 || b.content || '';
+          const encoding = b.Data.utf8 ? 'utf-8' : (b.Data.base64 ? 'base64' : (b.encoding || ''));
+          
+          return {
+            encoding: encoding,
+            content: content,
+            'content-type': b['content-type'] || 'text/plain',
+          };
+        }
+        // Already in correct format
+        return {
+          encoding: b.encoding || '',
+          content: b.content || '',
+          'content-type': b['content-type'] || 'text/plain',
+        };
+      });
+    }
+
     // Save
     // Add timestamp for unconfirmed transactions
     if (!t.blk?.t || t.blk?.t === 0) {

@@ -74,6 +74,8 @@ export interface BaseMessage {
     context?: string;
     channel?: string;
     bapID?: string;
+    encrypted?: string;
+    messageID?: string;
   }[];
   B: {
     encoding: string;
@@ -84,6 +86,7 @@ export interface BaseMessage {
     algorithm: string;
     address: string;
   }[];
+  timestamp?: number;
 }
 
 export interface Message {
@@ -124,6 +127,10 @@ export interface DMResponse {
 // Channel types
 export interface ChannelInfo {
   channel: string;
+  creator?: string | null;
+  last_message?: string | null;
+  last_message_time?: number;
+  messages?: number;
   public_read?: boolean;
   public_write?: boolean;
   bapId?: string;
@@ -275,7 +282,8 @@ export const MessageQuery = t.Object({
   limit: t.Optional(t.String()),
 });
 
-export const ChannelMessageSchema = t.Object({
+// Full channel message response (for internal use and caching)
+export const ChannelMessageResponseSchema = t.Object({
   channel: t.String(),
   page: t.Number(),
   limit: t.Number(),
@@ -309,6 +317,49 @@ export const ChannelMessageSchema = t.Object({
           })
         )
       ),
+    })
+  ),
+  signers: t.Array(t.Unknown()), // BapIdentity array
+});
+
+// Client-expected simplified format for API response
+export const ChannelMessageSchema = t.Object({
+  results: t.Array(
+    t.Object({
+      tx: t.Object({ h: t.String() }),
+      blk: t.Optional(t.Object({ i: t.Number(), t: t.Number() })),
+      MAP: t.Optional(t.Array(
+        t.Object({
+          app: t.Optional(t.String()),
+          type: t.Optional(t.String()),
+          paymail: t.Optional(t.String()),
+          context: t.Optional(t.String()),
+          channel: t.Optional(t.String()),
+          bapID: t.Optional(t.String()),
+        })
+      )),
+      B: t.Optional(t.Array(
+        t.Object({
+          encoding: t.Optional(t.String()),
+          content: t.Optional(t.String()),
+          'content-type': t.Optional(t.String()),
+          filename: t.Optional(t.String()), // Add missing field
+        })
+      )),
+      AIP: t.Optional(
+        t.Array(
+          t.Object({
+            algorithm: t.Optional(t.String()),
+            address: t.Optional(t.String()), // Make address optional since some messages don't have it
+          })
+        )
+      ),
+      // Additional fields for compatibility
+      txid: t.Optional(t.String()),
+      timestamp: t.Optional(t.Number()),
+      in: t.Optional(t.Array(t.Unknown())),
+      out: t.Optional(t.Array(t.Unknown())),
+      lock: t.Optional(t.Number()),
     })
   ),
   signers: t.Array(t.Unknown()), // BapIdentity array
@@ -352,6 +403,10 @@ export const ChannelParams = t.Object({
 export const ChannelResponseSchema = t.Array(
   t.Object({
     channel: t.String(),
+    creator: t.Optional(t.Union([t.String(), t.Null()])),
+    last_message: t.Optional(t.Union([t.String(), t.Null()])),
+    last_message_time: t.Optional(t.Number()),
+    messages: t.Optional(t.Number()),
     public_read: t.Optional(t.Boolean()),
     public_write: t.Optional(t.Boolean()),
     bapId: t.Optional(t.String()),
@@ -398,30 +453,54 @@ export const LikeResponseSchema = t.Array(
   })
 );
 
-// Identity schemas
+// Identity schemas - Fixed to match actual API response
 export const IdentityResponseSchema = t.Array(
   t.Object({
-    _id: t.String(),
-    identity: t.Object({
-      alternateName: t.Optional(t.String()),
-      description: t.Optional(t.String()),
-      image: t.Optional(t.String()),
-      url: t.Optional(t.String()),
-      email: t.Optional(t.String()),
-      homeLocation: t.Optional(
-        t.Object({
-          name: t.Optional(t.String()),
-          latitude: t.Optional(t.String()),
-          longitude: t.Optional(t.String()),
-        })
-      ),
-      bapId: t.Optional(t.String()),
-    }),
-    bapId: t.String(),
     idKey: t.String(),
-    addresses: t.Array(t.String()),
+    rootAddress: t.String(),
+    currentAddress: t.String(),
+    addresses: t.Array(
+      t.Object({
+        address: t.String(),
+        txId: t.String(),
+        block: t.Optional(t.Number()),
+      })
+    ),
+    identity: t.Union([
+      t.String(), // JSON string format
+      t.Unknown(), // For any complex/unknown object structure
+      t.Object({
+        // Parsed object format
+        '@context': t.Optional(t.String()),
+        '@type': t.Optional(t.String()),
+        alternateName: t.Optional(t.String()),
+        description: t.Optional(t.String()),
+        image: t.Optional(t.String()),
+        url: t.Optional(t.String()),
+        email: t.Optional(t.String()),
+        paymail: t.Optional(t.String()),
+        banner: t.Optional(t.String()),
+        logo: t.Optional(t.String()),
+        bitcoinAddress: t.Optional(t.String()),
+        familyName: t.Optional(t.String()),
+        givenName: t.Optional(t.String()),
+        homeLocation: t.Optional(
+          t.Object({
+            '@type': t.Optional(t.String()),
+            name: t.Optional(t.String()),
+            latitude: t.Optional(t.String()),
+            longitude: t.Optional(t.String()),
+          })
+        ),
+      }),
+    ]),
+    identityTxId: t.String(),
     block: t.Number(),
     timestamp: t.Number(),
+    valid: t.Boolean(),
+    paymail: t.Optional(t.String()),
+    displayName: t.Optional(t.String()),
+    icon: t.Optional(t.String()),
   })
 );
 
@@ -431,4 +510,89 @@ export const PostQuery = t.Object({
   limit: t.Optional(t.String()),
   mimetype: t.Optional(t.String()),
   channel: t.Optional(t.String()),
+});
+
+// Meta information for posts (likes, replies, reactions)
+export const MetaSchema = t.Object({
+  tx: t.String(),
+  likes: t.Number(),
+  reactions: t.Array(
+    t.Object({
+      emoji: t.String(),
+      count: t.Number(),
+    })
+  ),
+  replies: t.Number(),
+});
+
+// Single post response with metadata
+export const PostResponseSchema = t.Object({
+  post: t.Object({
+    tx: t.Object({ h: t.String() }),
+    blk: t.Object({ i: t.Number(), t: t.Number() }),
+    timestamp: t.Number(),
+    MAP: t.Array(
+      t.Object({
+        app: t.Optional(t.String()),
+        type: t.Optional(t.String()),
+        bapID: t.Optional(t.String()),
+      })
+    ),
+    B: t.Array(
+      t.Object({
+        encoding: t.String(),
+        content: t.Optional(t.String()),
+        'content-type': t.Optional(t.String()),
+      })
+    ),
+    AIP: t.Optional(
+      t.Array(
+        t.Object({
+          algorithm: t.String(),
+          address: t.String(),
+        })
+      )
+    ),
+  }),
+  signers: t.Array(t.Unknown()), // BapIdentity array
+  meta: MetaSchema,
+});
+
+// Posts list response (for /post/bap/:bapId, etc.)
+export const PostsResponseSchema = t.Object({
+  bapID: t.Optional(t.String()),
+  page: t.Number(),
+  limit: t.Number(),
+  count: t.Number(),
+  results: t.Array(
+    t.Object({
+      tx: t.Object({ h: t.String() }),
+      blk: t.Object({ i: t.Number(), t: t.Number() }),
+      timestamp: t.Number(),
+      MAP: t.Array(
+        t.Object({
+          app: t.Optional(t.String()),
+          type: t.Optional(t.String()),
+          bapID: t.Optional(t.String()),
+        })
+      ),
+      B: t.Array(
+        t.Object({
+          encoding: t.String(),
+          content: t.Optional(t.String()),
+          'content-type': t.Optional(t.String()),
+        })
+      ),
+      AIP: t.Optional(
+        t.Array(
+          t.Object({
+            algorithm: t.String(),
+            address: t.String(),
+          })
+        )
+      ),
+    })
+  ),
+  signers: t.Array(t.Unknown()), // BapIdentity array
+  meta: t.Array(MetaSchema),
 });

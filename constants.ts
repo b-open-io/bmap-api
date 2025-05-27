@@ -1,2 +1,2 @@
-export const PROTOCOL_START_BLOCK = 750000;
-// export const PROTOCOL_START_BLOCK = 887888;
+// Re-export from config for backward compatibility
+export { PROTOCOL_START_BLOCK } from './config/constants.js';

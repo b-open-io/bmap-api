@@ -3,6 +3,7 @@ import type { ChartConfiguration } from 'chart.js';
 import redis from 'redis';
 import type { BapIdentity } from './bap.js';
 import type { TimeSeriesData } from './chart.js';
+import { CACHE_TTL } from './config/constants.js';
 import { getCurrentBlockHeight } from './db.js';
 // Import social types from consolidated schemas
 import type {
@@ -70,7 +71,7 @@ export async function saveToRedis<T extends CacheValue>(
     options.EX = ttl;
   } else {
     // Default TTL of 1 hour for all cache entries
-    options.EX = 3600;
+    options.EX = CACHE_TTL.DEFAULT;
   }
   await client.set(key, JSON.stringify(value), options);
 }

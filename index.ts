@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
 import { staticPlugin } from '@elysiajs/static';
 import { swagger } from '@elysiajs/swagger';
@@ -6,26 +5,22 @@ import type { Static } from '@sinclair/typebox';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
 import { Elysia, NotFoundError, t } from 'elysia';
-import type { ChangeStreamDocument, Document, Filter, Sort, SortDirection } from 'mongodb';
+import type { ChangeStreamDocument } from 'mongodb';
 
-import type { BmapTx, BobTx } from 'bmapjs';
-import bmapjs from 'bmapjs';
-import { parse } from 'bpu-ts';
+import type { BmapTx } from 'bmapjs';
 
 import './logger.js'; // Initialize logger first
 import './p2p.js';
-import { type BapIdentity, getBAPIdByAddress, resolveSigners } from './bap.js';
+import { resolveSigners } from './bap.js';
+import { handleTxRequest } from './handlers/transaction.js';
 import {
-  type CacheCount,
-  type CacheValue,
   client,
-  deleteFromCache,
   getBlockHeightFromCache,
-  readFromRedis,
-  saveToRedis,
 } from './cache.js';
 import { getBlocksRange, getTimeSeriesData } from './chart.js';
-import { getCollectionCounts, getDbo, getState } from './db.js';
+import { API_HOST, API_PORT } from './config/constants.js';
+import { getDbo } from './db.js';
+import { errorHandlerPlugin } from './middleware/errorHandler.js';
 import { processTransaction } from './process.js';
 import { explorerTemplate } from './src/components/explorer.js';
 import { Timeframe } from './types.js';
@@ -33,12 +28,8 @@ import { Timeframe } from './types.js';
 import type { ChangeStream } from 'mongodb';
 import { bitcoinSchemaCollections, htmxRoutes } from './htmx.js';
 import { socialRoutes } from './social/routes.js';
-import { IdentityResponseSchema } from './social/schemas.js';
 
 dotenv.config();
-
-// const { allProtocols, TransformTx } = bmapjs;
-const __filename = fileURLToPath(import.meta.url);
 
 // Define request types
 const QueryParams = t.Object({
@@ -57,243 +48,12 @@ const IngestBody = t.Object({
 
 type IngestRequest = Static<typeof IngestBody>;
 
-// Transaction utility functions
-const bobFromRawTx = async (rawtx: string) => {
-  try {
-    const result = await parse({
-      tx: { r: rawtx },
-      split: [{ token: { op: 106 }, include: 'l' }, { token: { s: '|' } }],
-    });
-    if (!result) throw new Error('No result from parsing transaction');
-    return result;
-  } catch (error) {
-    console.error('Error parsing raw transaction:', error);
-    throw new Error(
-      `Failed to parse transaction: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-};
 
-type JBJsonTxResp = {
-  id: string;
-  transaction: string;
-  block_hash: string;
-  block_height: number;
-  block_time: number;
-  block_index: number;
-  addresses: string[];
-  inputs: string[];
-  outputs: string[];
-  input_types: string[];
-  output_types: string[];
-};
-
-const jsonFromTxid = async (txid: string): Promise<JBJsonTxResp> => {
-  try {
-    // const url = `https://api.whatsonchain.com/v1/bsv/main/tx/${txid}`;
-    const url = `https://junglebus.gorillapool.io/v1/transaction/get/${txid}`;
-    console.log('Fetching from JB:', url);
-
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`WhatsonChain request failed: ${res.status} ${res.statusText}`);
-    }
-    const json = (await res.json()) as JBJsonTxResp;
-    return json;
-  } catch (error) {
-    console.error('Error fetching from WhatsonChain:', error);
-    throw new Error(
-      `Failed to fetch from WhatsonChain: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-};
-
-const rawTxFromTxid = async (txid: string) => {
-  try {
-    // const url = `https://api.whatsonchain.com/v1/bsv/main/tx/${txid}/hex`;
-    const url = `https://junglebus.gorillapool.io/v1/transaction/get/${txid}/hex`;
-    console.log('Fetching raw tx from JB:', url);
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`JB request failed: ${res.status} ${res.statusText}`);
-    }
-    const text = await res.text();
-    if (!text) {
-      throw new Error('Empty response from JB');
-    }
-    return text;
-  } catch (error) {
-    console.error('Error fetching raw tx from JB:', error);
-    throw new Error(
-      `Failed to fetch raw tx: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-};
-
-const bobFromTxid = async (txid: string) => {
-  try {
-    const rawtx = await rawTxFromTxid(txid);
-    try {
-      return await bobFromRawTx(rawtx);
-    } catch (e) {
-      throw new Error(
-        `Failed to get rawtx from whatsonchain for ${txid}: ${
-          e instanceof Error ? e.message : String(e)
-        }`
-      );
-    }
-  } catch (error) {
-    console.error('Error in bobFromTxid:', error);
-    throw new Error(
-      `Failed to process transaction: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-};
-
-/* Inserted helper function for handling transaction requests */
-const handleTxRequest = async (txid: string, format?: string) => {
-  if (!txid) throw new Error('Missing txid');
-  try {
-    if (format === 'raw') return rawTxFromTxid(txid);
-    if (format === 'json') return jsonFromTxid(txid);
-    if (format === 'bob') return bobFromTxid(txid);
-    if (format === 'signer') {
-      const rawTx = await rawTxFromTxid(txid);
-      const { signer } = await processTransaction(rawTx);
-      if (!signer) {
-        throw new Error('No signer found for transaction');
-      }
-      return signer;
-    }
-
-    const cacheKey = `tx:${txid}`;
-    const cached = await readFromRedis<CacheValue>(cacheKey);
-    let decoded: BmapTx;
-
-    if (cached?.type === 'tx' && cached.value) {
-      console.log('Cache hit for tx:', txid);
-      decoded = cached.value;
-    } else {
-      console.log('Cache miss for tx:', txid);
-      const db = await getDbo();
-      const collections = ['message', 'like', 'post', 'repost'];
-      let dbTx: BmapTx | null = null;
-      for (const collection of collections) {
-        const result = await db
-          .collection<{ _id: string }>(collection)
-          .findOne({ _id: txid } as Filter<{ _id: string }>);
-        if (result && 'tx' in result && 'out' in result) {
-          dbTx = result as unknown as BmapTx;
-          console.log('Found tx in MongoDB collection:', collection);
-          break;
-        }
-      }
-      if (dbTx) {
-        decoded = dbTx;
-      } else {
-        console.log('Processing new transaction:', txid);
-        const rawTx = await rawTxFromTxid(txid);
-        const { result, signer } = await processTransaction(rawTx);
-        decoded = result;
-
-        const txDetails = await jsonFromTxid(txid);
-        if (txDetails.block_height && txDetails.block_time) {
-          decoded.blk = {
-            i: txDetails.block_height,
-            t: txDetails.block_time,
-          };
-        } else if (txDetails.block_time) {
-          decoded.timestamp = txDetails.block_time;
-        }
-        console.log('decoded', decoded);
-        if (decoded.B || decoded.MAP) {
-          try {
-            const collection = decoded.MAP?.[0]?.type || 'message';
-            await db
-              .collection<{ _id: string }>(collection)
-              .updateOne(
-                { _id: txid } as Filter<{ _id: string }>,
-                { $set: decoded },
-                { upsert: true }
-              );
-            console.log('Saved tx to MongoDB collection:', collection);
-          } catch (error) {
-            console.error('Error saving to MongoDB:', error);
-          }
-        }
-        if (signer) {
-          await saveToRedis<CacheValue>(`signer-${signer.idKey}`, {
-            type: 'signer',
-            value: signer,
-          });
-        }
-      }
-
-      await saveToRedis<CacheValue>(cacheKey, {
-        type: 'tx',
-        value: decoded,
-      });
-    }
-    if (format === 'file') {
-      let vout = 0;
-      if (txid.includes('_')) {
-        const parts = txid.split('_');
-        vout = Number.parseInt(parts[1], 10);
-      }
-      let dataBuf: Buffer | undefined;
-      let contentType: string | undefined;
-      if (decoded.ORD?.[vout]) {
-        dataBuf = Buffer.from(decoded.ORD[vout]?.data, 'base64');
-        contentType = decoded.ORD[vout].contentType;
-      } else if (decoded.B?.[vout]) {
-        dataBuf = Buffer.from(decoded.B[vout]?.content, 'base64');
-        contentType = decoded.B[vout]['content-type'];
-      }
-      if (dataBuf && contentType) {
-        return new Response(dataBuf, {
-          headers: {
-            'Content-Type': contentType,
-            'Content-Length': String(dataBuf.length),
-          },
-        });
-      }
-      throw new Error('No data found in transaction outputs');
-    }
-    switch (format) {
-      case 'bmap':
-        return decoded;
-      default:
-        if (format && decoded[format]) {
-          return decoded[format];
-        }
-        return format?.length
-          ? `Key ${format} not found in tx`
-          : new Response(`<pre>${JSON.stringify(decoded, null, 2)}</pre>`, {
-              headers: { 'Content-Type': 'text/html' },
-            });
-    }
-  } catch (error: unknown) {
-    console.error('Error processing transaction:', error);
-    const errMsg = error instanceof Error ? error.message : String(error);
-    let statusCode = 500;
-    if (errMsg.includes('Empty response from JB') || errMsg.includes('Failed to fetch raw tx:')) {
-      statusCode = 404;
-    }
-    return new Response(
-      JSON.stringify({
-        error: errMsg,
-        stack: error instanceof Error ? error.stack : undefined,
-      }),
-      {
-        status: statusCode,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
-  }
-};
 
 // Create and configure the Elysia app using method chaining
 const app = new Elysia()
+  // Error handling
+  .use(errorHandlerPlugin())
   // Plugins
   .use(cors())
   .use(staticPlugin({ assets: './public', prefix: '/' }))
@@ -450,7 +210,7 @@ const app = new Elysia()
       headers: { 'Content-Type': 'text/html' },
     });
   })
-  .use(socialRoutes)
+  .group('/social', (app) => app.use(socialRoutes))
   .use(htmxRoutes)
   // Routes
   .get(
@@ -1147,11 +907,8 @@ async function start() {
   console.log(chalk.magenta('BMAP API'), chalk.cyan('initializing machine...'));
   await client.connect();
 
-  const port = Number(process.env.PORT) || 3055;
-  const host = process.env.HOST || '127.0.0.1';
-
-  app.listen({ port }, () => {
-    console.log(chalk.magenta('BMAP API'), chalk.green(`listening on ${host}:${port}!`));
+  app.listen({ port: API_PORT, hostname: API_HOST }, () => {
+    console.log(chalk.magenta('BMAP API'), chalk.green(`listening on ${API_HOST}:${API_PORT}!`));
   });
 }
 

@@ -5,13 +5,15 @@ import { getBAPIdByAddress, resolveSigners, searchIdentities } from '../bap.js';
 import type { BapIdentity } from '../bap.js';
 import { client, readFromRedis, saveToRedis } from '../cache.js';
 import type { CacheError, CacheSigner, CacheValue } from '../cache.js';
+import { CACHE_TTL, DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from '../config/constants.js';
 import { getDbo } from '../db.js';
+import { NotFoundError, ServerError, ValidationError } from '../middleware/errorHandler.js';
 import { getDirectMessages, watchAllMessages, watchDirectMessages } from '../queries/messages.js';
 import { getChannels } from './queries/channels.js';
 import { fetchAllFriendsAndUnfriends, processRelationships } from './queries/friends.js';
 import { fetchBapIdentityData } from './queries/identity.js';
 import { getLikes, processLikes } from './queries/likes.js';
-import { updateSignerCache } from './queries/messages.js';
+import { updateSignerCache, getChannelMessages } from './queries/messages.js';
 // Import consolidated schemas and types
 import {
   type ChannelMessage,
@@ -32,6 +34,8 @@ import {
   PaginationQuery,
   type Post,
   PostQuery,
+  PostResponseSchema,
+  PostsResponseSchema,
 } from './schemas.js';
 
 import { getPost, getPosts, getReplies, searchPosts } from '../queries/posts.js';
@@ -101,7 +105,7 @@ export const socialRoutes = new Elysia()
       try {
         const { channelId } = params;
         if (!channelId) {
-          throw new Error('Missing channel ID');
+          throw new ValidationError('Missing channel ID');
         }
 
         const decodedChannelId = decodeURIComponent(channelId);
@@ -110,11 +114,11 @@ export const socialRoutes = new Elysia()
         const limit = query.limit ? Number.parseInt(query.limit, 10) : 100;
 
         if (Number.isNaN(page) || page < 1) {
-          throw new Error('Invalid page parameter');
+          throw new ValidationError('Invalid page parameter');
         }
 
         if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
-          throw new Error('Invalid limit parameter');
+          throw new ValidationError('Invalid limit parameter');
         }
 
         const skip = (page - 1) * limit;
@@ -123,100 +127,23 @@ export const socialRoutes = new Elysia()
         const cached = await readFromRedis<CacheValue>(cacheKey);
 
         if (cached?.type === 'messages') {
-          console.log('Cache hit for messages:', cacheKey);
           Object.assign(set.headers, {
             'Cache-Control': 'public, max-age=60',
           });
           // Type guard to ensure we have the right cached value type
           if ('page' in cached.value && 'results' in cached.value) {
-            const response: ChannelMessageResponse = {
-              ...cached.value,
-              channel: channelId,
+            // Return only results and signers to match client expectations
+            return {
+              results: cached.value.results || [],
               signers: cached.value.signers || [],
             };
-            return response;
           }
           // If it's not the expected format, fall through to fetch fresh data
           console.warn('Cached value has unexpected format');
         }
 
-        console.log('Cache miss for messages:', cacheKey);
-        const db = await getDbo();
-
-        const queryObj = {
-          'MAP.type': 'message',
-          'MAP.channel': decodedChannelId,
-        };
-
-        const col = db.collection('message');
-
-        const count = await col.countDocuments(queryObj);
-
-        const results = (await col
-          .find(queryObj)
-          .sort({ 'blk.t': -1 })
-          .skip(skip)
-          .limit(limit)
-          .project({ _id: 0 })
-          .toArray()) as Message[];
-
-        // Validate each message
-        const validatedResults = results.map((msg) => ({
-          ...msg,
-          tx: { h: msg.tx?.h || '' },
-          blk: { i: msg.blk?.i || 0, t: msg.blk?.t || 0 },
-          MAP:
-            msg.MAP?.map((m) => ({
-              app: m.app || '',
-              type: 'message', // Ensure type is explicitly set to "message"
-              channel: m.channel || '',
-              paymail: m.paymail || '',
-            })) || [],
-          B:
-            msg.B?.map((b) => ({
-              encoding: b?.encoding || '',
-              content: b?.content || '',
-              'content-type': b?.['content-type'] || '',
-            })) || [],
-        }));
-
-        // Initialize empty signers array with proper type
-        let signers: BapIdentity[] = [];
-
-        // Only try to resolve signers if there are messages with AIP data
-        const messagesWithAIP = results.filter((msg) => msg.AIP && msg.AIP.length > 0);
-        if (messagesWithAIP.length > 0) {
-          try {
-            signers = await resolveSigners(messagesWithAIP);
-            console.log(`Resolved ${signers.length} signers`);
-          } catch (error) {
-            console.error('Error resolving signers:', error);
-            // Don't throw - continue with empty signers array
-          }
-        } else {
-          console.log('No messages with AIP data found');
-        }
-
-        // Ensure signers array is properly initialized with all required fields
-        const validatedSigners: BapIdentity[] = signers.map((s) => ({
-          ...s,
-          identityTxId: s.identityTxId || '',
-          identity:
-            typeof s.identity === 'string'
-              ? s.identity
-              : typeof s.identity === 'object'
-                ? s.identity
-                : JSON.stringify(s.identity || {}),
-        }));
-
-        const response: ChannelMessageResponse = {
-          channel: channelId,
-          page,
-          limit,
-          count,
-          results: validatedResults,
-          signers: validatedSigners,
-        };
+        // Use the getChannelMessages function which properly handles data transformation
+        const response = await getChannelMessages({ channelId: decodedChannelId, page, limit });
 
         await saveToRedis<CacheValue>(cacheKey, {
           type: 'messages',
@@ -226,20 +153,19 @@ export const socialRoutes = new Elysia()
         Object.assign(set.headers, {
           'Cache-Control': 'public, max-age=60',
         });
-        return response;
+        // Return only results and signers to match client expectations
+        return {
+          results: response.results,
+          signers: response.signers,
+        };
       } catch (error: unknown) {
         console.error('Error fetching messages:', error);
         set.status = 500;
         // Return a properly structured response with empty arrays
-        const errorResponse: ChannelMessageResponse = {
-          channel: params.channelId || '',
-          page: 1,
-          limit: 100,
-          count: 0,
+        return {
           results: [],
           signers: [],
         };
-        return errorResponse;
       }
     },
     {
@@ -250,7 +176,6 @@ export const socialRoutes = new Elysia()
     }
   )
   .get('/autofill', async ({ query }) => {
-    console.log('=== Starting /autofill request ===');
     try {
       const { q } = query;
       if (!q) {
@@ -259,7 +184,6 @@ export const socialRoutes = new Elysia()
 
       const cached = await client.hGet('autofill', q);
       if (cached) {
-        console.log('Cache hit for autofill:', q);
         return {
           status: 'OK',
           result: JSON.parse(cached),
@@ -275,7 +199,7 @@ export const socialRoutes = new Elysia()
         posts: posts,
       };
       client.hSet('autofill', q, JSON.stringify(result));
-      client.hExpire('autofill', q, 15 * 60); // 15 minutes
+      client.hExpire('autofill', q, CACHE_TTL.AUTOFILL);
       return {
         status: 'OK',
         result: result,
@@ -286,7 +210,6 @@ export const socialRoutes = new Elysia()
     }
   })
   .get('/identity/search', async ({ query }) => {
-    console.log('=== Starting /identity/search request ===');
     try {
       const { q, limit, offset } = query;
       if (!q) {
@@ -307,9 +230,23 @@ export const socialRoutes = new Elysia()
       console.error('Error fetching autofill data:', error);
       throw new Error('Failed to fetch autofill data');
     }
+  }, {
+    query: t.Object({
+      q: t.String({ description: 'Search query' }),
+      limit: t.Optional(t.String({ description: 'Number of results to return' })),
+      offset: t.Optional(t.String({ description: 'Offset for pagination' })),
+    }),
+    response: t.Object({
+      status: t.String(),
+      result: IdentityResponseSchema,
+    }),
+    detail: {
+      tags: ['identities'],
+      summary: 'Search identities',
+      description: 'Search for BAP identities by name, paymail, or other attributes',
+    }
   })
   .get('/post/search', async ({ query }) => {
-    console.log('=== Starting /post/search request ===');
     try {
       const { q, limit, offset } = query;
       if (!q) {
@@ -329,6 +266,18 @@ export const socialRoutes = new Elysia()
     } catch (error: unknown) {
       console.error('Error fetching autofill data:', error);
       throw new Error('Failed to fetch autofill data');
+    }
+  }, {
+    query: t.Object({
+      q: t.String({ description: 'Search query' }),
+      limit: t.Optional(t.String({ description: 'Number of results to return' })),
+      offset: t.Optional(t.String({ description: 'Offset for pagination' })),
+    }),
+    response: PostsResponseSchema,
+    detail: {
+      tags: ['posts'],
+      summary: 'Search posts',
+      description: 'Search posts by content or metadata',
     }
   })
   .get(
@@ -358,7 +307,6 @@ export const socialRoutes = new Elysia()
   .get(
     '/post/:txid',
     async ({ set, params }) => {
-      console.log('=== Starting /post/:txid request ===');
       try {
         return getPost(params.txid);
       } catch (error: unknown) {
@@ -372,12 +320,17 @@ export const socialRoutes = new Elysia()
     },
     {
       query: PostQuery,
+      response: PostResponseSchema,
+      detail: {
+        tags: ['posts'],
+        summary: 'Get single post by transaction ID',
+        description: 'Retrieves a single post with metadata and signers',
+      }
     }
   )
   .get(
     '/post/:txid/reply',
     async ({ set, query, params }) => {
-      console.log('=== Starting /post/:txid/reply request ===');
       try {
         const repliesQuery = {
           txid: params.txid,
@@ -396,12 +349,17 @@ export const socialRoutes = new Elysia()
     },
     {
       query: PostQuery,
+      response: PostsResponseSchema,
+      detail: {
+        tags: ['posts'],
+        summary: 'Get replies to a post',
+        description: 'Retrieves all replies to a specific post by transaction ID',
+      }
     }
   )
   .get(
     '/post/:txid/like',
     async ({ set, query, params }) => {
-      console.log('=== Starting /post/:txid/like request ===');
       try {
         const repliesQuery = {
           txid: params.txid,
@@ -425,7 +383,6 @@ export const socialRoutes = new Elysia()
   .get(
     '/post/address/:address',
     async ({ set, query, params }) => {
-      console.log('=== Starting /post/address/:address request ===');
       try {
         const postQuery = {
           address: params.address,
@@ -444,12 +401,17 @@ export const socialRoutes = new Elysia()
     },
     {
       query: PostQuery,
+      response: PostsResponseSchema,
+      detail: {
+        tags: ['posts'],
+        summary: 'Get posts by address',
+        description: 'Retrieves all posts from a specific Bitcoin address',
+      }
     }
   )
   .get(
     '/post/bap/:bapId',
-    async ({ set, query, params }) => {
-      console.log('=== Starting /post/bap/:bapId request ===');
+    async ({ query, params }) => {
       try {
         const postQuery = {
           bapId: params.bapId,
@@ -458,22 +420,18 @@ export const socialRoutes = new Elysia()
         };
         return getPosts(postQuery);
       } catch (error: unknown) {
-        console.error('Error fetching feed:', error);
-        set.status = 500;
-        return {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch feed',
-        };
+        console.error('Error fetching posts:', error);
+        throw new ServerError('Failed to fetch posts');
       }
     },
     {
       query: PostQuery,
+      response: PostsResponseSchema,
     }
   )
   .get(
     '/bap/:bapId/like',
     async ({ set, query, params }) => {
-      console.log('=== Starting /bap/:bapId/like request ===');
       try {
         const repliesQuery = {
           bapId: params.bapId,
@@ -492,6 +450,12 @@ export const socialRoutes = new Elysia()
     },
     {
       query: PostQuery,
+      response: PostsResponseSchema,
+      detail: {
+        tags: ['social'],
+        summary: 'Get likes by BAP ID',
+        description: 'Retrieves all likes made by a specific BAP identity',
+      }
     }
   )
   .post(
@@ -634,8 +598,8 @@ export const socialRoutes = new Elysia()
         set.status = 500;
         return {
           bapID: params.bapId,
-          page: 1,
-          limit: 100,
+          page: DEFAULT_PAGE,
+          limit: DEFAULT_PAGE_SIZE,
           count: 0,
           results: [],
           signers: [],
@@ -667,8 +631,8 @@ export const socialRoutes = new Elysia()
         set.status = 500;
         return {
           bapID: params.bapId,
-          page: 1,
-          limit: 100,
+          page: DEFAULT_PAGE,
+          limit: DEFAULT_PAGE_SIZE,
           count: 0,
           results: [],
           signers: [],
@@ -742,8 +706,6 @@ export const socialRoutes = new Elysia()
     '/identities',
     async ({ set }) => {
       try {
-        console.log('=== Starting /identities request ===');
-
         // Check Redis connection
         console.log('Checking Redis connection...');
         if (!client.isReady) {
@@ -757,7 +719,6 @@ export const socialRoutes = new Elysia()
         const cachedIdentities = await readFromRedis<CacheValue | CacheError>(identitiesCacheKey);
 
         if (cachedIdentities?.type === 'identities' && Array.isArray(cachedIdentities.value)) {
-          console.log('Using cached identities list');
           Object.assign(set.headers, {
             'Cache-Control': 'public, max-age=60',
           });
@@ -765,12 +726,9 @@ export const socialRoutes = new Elysia()
         }
 
         // If no cached list, get all signer-* keys from Redis
-        console.log('No cached identities list, checking individual signer caches');
         const signerKeys = await client.keys('signer-*');
-        console.log(`Found ${signerKeys.length} cached signers`);
 
         if (!signerKeys.length) {
-          console.log('No cached signers found');
           return [];
         }
 
@@ -817,7 +775,6 @@ export const socialRoutes = new Elysia()
         const filteredIdentities = identities.filter((id) => id !== null) as BapIdentity[];
 
         console.log('\n=== Identity Processing Summary ===');
-        console.log('Total cached signers:', signerKeys.length);
         console.log('Successfully processed:', filteredIdentities.length);
         console.log('Failed/invalid:', signerKeys.length - filteredIdentities.length);
 

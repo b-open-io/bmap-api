@@ -1,5 +1,5 @@
 import type { BapIdentity } from '../../bap.js';
-import { getBAPIdByAddress, resolveSigners } from '../../bap.js';
+import { resolveSigners } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { client, readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
@@ -65,12 +65,15 @@ export async function getChannelMessages(params: {
   const validatedResults = results.map((msg) => ({
     ...msg,
     tx: { h: msg.tx?.h || '' },
+    txid: msg.tx?.h || '', // Include txid for frontend compatibility
     blk: { i: msg.blk?.i || 0, t: msg.blk?.t || 0 },
     MAP: msg.MAP?.map((m) => ({
       app: m.app || '',
       type: m.type || '',
       channel: m.channel || '',
       paymail: m.paymail || '',
+      context: m.context || 'channel',
+      bapID: m.bapID || '',
     })) || [
       {
         app: '',
@@ -79,15 +82,24 @@ export async function getChannelMessages(params: {
         paymail: '',
       },
     ],
-    B: msg.B?.map((b) => ({
-      encoding: b?.encoding || '',
-      content: b?.content || '',
-      'content-type': b?.['content-type'] || '',
-    })) || [
+    B: msg.B?.map(
+      (b: {
+        encoding?: string;
+        content?: string;
+        'content-type'?: string;
+        filename?: string;
+      }) => ({
+        encoding: b?.encoding || '',
+        content: b?.content || '',
+        'content-type': b?.['content-type'] || 'text/plain',
+        filename: b?.filename || '',
+      })
+    ) || [
       {
         encoding: '',
         content: '',
         'content-type': '',
+        filename: '',
       },
     ],
   }));
