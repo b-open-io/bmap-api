@@ -1,4 +1,4 @@
-import { t, type Static } from 'elysia';
+import { type Static, t } from 'elysia';
 
 // Define request types
 export const QueryParams = t.Object({

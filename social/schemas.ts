@@ -328,24 +328,28 @@ export const ChannelMessageSchema = t.Object({
     t.Object({
       tx: t.Object({ h: t.String() }),
       blk: t.Optional(t.Object({ i: t.Number(), t: t.Number() })),
-      MAP: t.Optional(t.Array(
-        t.Object({
-          app: t.Optional(t.String()),
-          type: t.Optional(t.String()),
-          paymail: t.Optional(t.String()),
-          context: t.Optional(t.String()),
-          channel: t.Optional(t.String()),
-          bapID: t.Optional(t.String()),
-        })
-      )),
-      B: t.Optional(t.Array(
-        t.Object({
-          encoding: t.Optional(t.String()),
-          content: t.Optional(t.String()),
-          'content-type': t.Optional(t.String()),
-          filename: t.Optional(t.String()), // Add missing field
-        })
-      )),
+      MAP: t.Optional(
+        t.Array(
+          t.Object({
+            app: t.Optional(t.String()),
+            type: t.Optional(t.String()),
+            paymail: t.Optional(t.String()),
+            context: t.Optional(t.String()),
+            channel: t.Optional(t.String()),
+            bapID: t.Optional(t.String()),
+          })
+        )
+      ),
+      B: t.Optional(
+        t.Array(
+          t.Object({
+            encoding: t.Optional(t.String()),
+            content: t.Optional(t.String()),
+            'content-type': t.Optional(t.String()),
+            filename: t.Optional(t.String()), // Add missing field
+          })
+        )
+      ),
       AIP: t.Optional(
         t.Array(
           t.Object({

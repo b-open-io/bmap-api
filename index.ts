@@ -12,14 +12,11 @@ import type { BmapTx } from 'bmapjs';
 import './logger.js'; // Initialize logger first
 import './p2p.js';
 import { resolveSigners } from './bap.js';
-import { handleTxRequest } from './handlers/transaction.js';
-import {
-  client,
-  getBlockHeightFromCache,
-} from './cache.js';
+import { client, getBlockHeightFromCache } from './cache.js';
 import { getBlocksRange, getTimeSeriesData } from './chart.js';
 import { API_HOST, API_PORT } from './config/constants.js';
 import { getDbo } from './db.js';
+import { handleTxRequest } from './handlers/transaction.js';
 import { errorHandlerPlugin } from './middleware/errorHandler.js';
 import { processTransaction } from './process.js';
 import { explorerTemplate } from './src/components/explorer.js';
@@ -47,8 +44,6 @@ const IngestBody = t.Object({
 });
 
 type IngestRequest = Static<typeof IngestBody>;
-
-
 
 // Create and configure the Elysia app using method chaining
 const app = new Elysia()

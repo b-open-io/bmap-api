@@ -85,8 +85,8 @@ export const processTransaction = async (
         if (b.Data) {
           // Convert Data structure to content
           const content = b.Data.utf8 || b.Data.base64 || b.content || '';
-          const encoding = b.Data.utf8 ? 'utf-8' : (b.Data.base64 ? 'base64' : (b.encoding || ''));
-          
+          const encoding = b.Data.utf8 ? 'utf-8' : b.Data.base64 ? 'base64' : b.encoding || '';
+
           return {
             encoding: encoding,
             content: content,

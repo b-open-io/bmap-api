@@ -13,7 +13,7 @@ import { getChannels } from './queries/channels.js';
 import { fetchAllFriendsAndUnfriends, processRelationships } from './queries/friends.js';
 import { fetchBapIdentityData } from './queries/identity.js';
 import { getLikes, processLikes } from './queries/likes.js';
-import { updateSignerCache, getChannelMessages } from './queries/messages.js';
+import { getChannelMessages, updateSignerCache } from './queries/messages.js';
 // Import consolidated schemas and types
 import {
   type ChannelMessage,
@@ -121,7 +121,7 @@ export const socialRoutes = new Elysia()
           throw new ValidationError('Invalid limit parameter');
         }
 
-        const skip = (page - 1) * limit;
+        const _skip = (page - 1) * limit;
 
         const cacheKey = `messages:${decodedChannelId}:${page}:${limit}`;
         const cached = await readFromRedis<CacheValue>(cacheKey);
@@ -209,77 +209,85 @@ export const socialRoutes = new Elysia()
       throw new Error('Failed to fetch autofill data');
     }
   })
-  .get('/identity/search', async ({ query }) => {
-    try {
-      const { q, limit, offset } = query;
-      if (!q) {
-        throw new Error('q param is required');
+  .get(
+    '/identity/search',
+    async ({ query }) => {
+      try {
+        const { q, limit, offset } = query;
+        if (!q) {
+          throw new Error('q param is required');
+        }
+
+        const results = await searchIdentities({
+          q,
+          limit: limit ? Number.parseInt(limit, 10) : 100,
+          offset: offset ? Number.parseInt(offset, 10) : 0,
+        });
+
+        return {
+          status: 'OK',
+          result: results,
+        };
+      } catch (error: unknown) {
+        console.error('Error fetching autofill data:', error);
+        throw new Error('Failed to fetch autofill data');
       }
-
-      const results = await searchIdentities({
-        q,
-        limit: limit ? Number.parseInt(limit, 10) : 100,
-        offset: offset ? Number.parseInt(offset, 10) : 0,
-      });
-
-      return {
-        status: 'OK',
-        result: results,
-      };
-    } catch (error: unknown) {
-      console.error('Error fetching autofill data:', error);
-      throw new Error('Failed to fetch autofill data');
+    },
+    {
+      query: t.Object({
+        q: t.String({ description: 'Search query' }),
+        limit: t.Optional(t.String({ description: 'Number of results to return' })),
+        offset: t.Optional(t.String({ description: 'Offset for pagination' })),
+      }),
+      response: t.Object({
+        status: t.String(),
+        result: IdentityResponseSchema,
+      }),
+      detail: {
+        tags: ['identities'],
+        summary: 'Search identities',
+        description: 'Search for BAP identities by name, paymail, or other attributes',
+      },
     }
-  }, {
-    query: t.Object({
-      q: t.String({ description: 'Search query' }),
-      limit: t.Optional(t.String({ description: 'Number of results to return' })),
-      offset: t.Optional(t.String({ description: 'Offset for pagination' })),
-    }),
-    response: t.Object({
-      status: t.String(),
-      result: IdentityResponseSchema,
-    }),
-    detail: {
-      tags: ['identities'],
-      summary: 'Search identities',
-      description: 'Search for BAP identities by name, paymail, or other attributes',
-    }
-  })
-  .get('/post/search', async ({ query }) => {
-    try {
-      const { q, limit, offset } = query;
-      if (!q) {
-        throw new Error('q param is required');
+  )
+  .get(
+    '/post/search',
+    async ({ query }) => {
+      try {
+        const { q, limit, offset } = query;
+        if (!q) {
+          throw new Error('q param is required');
+        }
+
+        const results = await searchPosts({
+          q,
+          limit: limit ? Number.parseInt(limit, 10) : 100,
+          offset: offset ? Number.parseInt(offset, 10) : 0,
+        });
+
+        return {
+          status: 'OK',
+          result: results,
+        };
+      } catch (error: unknown) {
+        console.error('Error fetching autofill data:', error);
+        throw new Error('Failed to fetch autofill data');
       }
-
-      const results = await searchPosts({
-        q,
-        limit: limit ? Number.parseInt(limit, 10) : 100,
-        offset: offset ? Number.parseInt(offset, 10) : 0,
-      });
-
-      return {
-        status: 'OK',
-        result: results,
-      };
-    } catch (error: unknown) {
-      console.error('Error fetching autofill data:', error);
-      throw new Error('Failed to fetch autofill data');
+    },
+    {
+      query: t.Object({
+        q: t.String({ description: 'Search query' }),
+        limit: t.Optional(t.String({ description: 'Number of results to return' })),
+        offset: t.Optional(t.String({ description: 'Offset for pagination' })),
+      }),
+      response: PostsResponseSchema,
+      detail: {
+        tags: ['posts'],
+        summary: 'Search posts',
+        description: 'Search posts by content or metadata',
+      },
     }
-  }, {
-    query: t.Object({
-      q: t.String({ description: 'Search query' }),
-      limit: t.Optional(t.String({ description: 'Number of results to return' })),
-      offset: t.Optional(t.String({ description: 'Offset for pagination' })),
-    }),
-    response: PostsResponseSchema,
-    detail: {
-      tags: ['posts'],
-      summary: 'Search posts',
-      description: 'Search posts by content or metadata',
-    }
-  })
+  )
   .get(
     '/feed/:bapId?',
     async ({ set, query, params }) => {
@@ -325,7 +333,7 @@ export const socialRoutes = new Elysia()
         tags: ['posts'],
         summary: 'Get single post by transaction ID',
         description: 'Retrieves a single post with metadata and signers',
-      }
+      },
     }
   )
   .get(
@@ -354,7 +362,7 @@ export const socialRoutes = new Elysia()
         tags: ['posts'],
         summary: 'Get replies to a post',
         description: 'Retrieves all replies to a specific post by transaction ID',
-      }
+      },
     }
   )
   .get(
@@ -406,7 +414,7 @@ export const socialRoutes = new Elysia()
         tags: ['posts'],
         summary: 'Get posts by address',
         description: 'Retrieves all posts from a specific Bitcoin address',
-      }
+      },
     }
   )
   .get(
@@ -455,7 +463,7 @@ export const socialRoutes = new Elysia()
         tags: ['social'],
         summary: 'Get likes by BAP ID',
         description: 'Retrieves all likes made by a specific BAP identity',
-      }
+      },
     }
   )
   .post(
