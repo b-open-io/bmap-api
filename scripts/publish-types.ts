@@ -119,7 +119,7 @@ async function main() {
     );
 
     // Check if there are actually changes to commit
-    const statusCheck = execSync('git status --porcelain --cached', {
+    const statusCheck = execSync('git diff --cached --name-only', {
       encoding: 'utf-8',
     }).trim();
 
