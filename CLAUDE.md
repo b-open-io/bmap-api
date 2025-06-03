@@ -14,6 +14,309 @@ The BMAP API is a production-ready Bitcoin SV transaction processing and social 
 - **Type-safe API** with TypeBox validation
 - **Auto-generated documentation** and types
 
+## Debugging & Development Methodology
+
+### Iterative Problem-Solving Process
+
+**1. Validation Error Diagnosis**:
+```bash
+# Test endpoint and capture detailed error
+curl "http://localhost:3055/endpoint" | jq .error
+
+# Look for specific validation patterns:
+# - "Expected required property" = missing field
+# - "Expected string but found undefined" = type mismatch
+# - Path shows exact location: "/signers/0/addresses/0/txId"
+```
+
+**2. Database Schema Investigation**:
+```bash
+# Quick collection inspection
+mongosh bap --eval 'db.identities.findOne({}, {field1: 1, field2: 1})'
+
+# Count documents to verify data exists
+mongosh bap --eval 'db.identities.countDocuments()'
+
+# Check actual field names (critical for mapping)
+mongosh bap --eval 'db.identities.findOne({}, {addresses: 1})'
+```
+
+**3. Type Definition Hunting**:
+```bash
+# Find schema definitions
+grep -r "txId.*String" schemas/
+grep -r "BapIdentity" types.ts bap.ts
+
+# Find where types are used
+grep -r "getSigners" --include="*.ts"
+grep -r "AddressEntrySchema" --include="*.ts"
+```
+
+**4. Validation Schema Alignment**:
+- Database fields may be optional/missing → Schema must reflect this
+- Field name mismatches (e.g., `txid` vs `txId`) → Fix mapping, not fallbacks
+- Security defaults (e.g., `valid: false`) → Explicit validation required
+
+**5. Code Quality Maintenance**:
+```bash
+# Check and fix linting
+bun run lint          # Identify issues
+bun run lint:fix      # Auto-fix formatting
+```
+
+### Common Issue Patterns
+
+**Validation Failures**:
+1. **Missing Required Fields**: Make schema field optional if database doesn't guarantee it
+2. **Field Name Mismatches**: Use correct database field names in mapping
+3. **Type Mismatches**: Database may have `undefined` where schema expects `string`
+
+**Security Considerations**:
+- Always default `valid` fields to `false`
+- Only set `valid: true` when explicitly validated
+- Never use fallbacks for security-critical fields
+
+**Database Field Mapping**:
+```typescript
+// ❌ Wrong - creates empty strings for missing fields
+txId: addr.txid || ''
+
+// ✅ Correct - preserves undefined, make schema optional
+txId: addr.txid  // with t.Optional(t.String()) in schema
+```
+
+### Efficient CLI Debugging
+
+**MongoDB Direct Access**:
+```bash
+# Quick data inspection
+mongosh bap --eval 'db.identities.findOne()'
+
+# Field-specific queries
+mongosh bap --eval 'db.identities.findOne({}, {addresses: 1, valid: 1})'
+
+# Collection listings
+mongosh --eval 'show dbs'
+mongosh bap --eval 'show collections'
+```
+
+**API Testing**:
+```bash
+# Test with error capture
+curl "http://localhost:3055/endpoint" | jq .
+
+# Specific field inspection
+curl "http://localhost:3055/endpoint" | jq ".signers[0].addresses[0]"
+
+# Check for errors vs success
+curl "http://localhost:3055/endpoint" | jq ".error == null"
+```
+
+**Development Workflow**:
+```bash
+# Start development server
+bun run build &
+
+# Test changes immediately
+curl "http://localhost:3055/endpoint"
+
+# Check quality
+bun run lint
+```
+
+### TypeScript & Elysia Debugging
+
+**Schema-First Development**:
+1. **Schema Definition**: Always start with TypeBox schema in `schemas/core.ts`
+2. **Type Generation**: TypeScript types auto-generated from schemas
+3. **Runtime Validation**: Elysia validates requests/responses against schemas
+4. **Error Correlation**: Validation errors point to exact schema path
+
+**Elysia Validation Error Patterns**:
+```typescript
+// Error format shows exact path and expected type
+{
+  "path": "/signers/0/addresses/0/txId",
+  "message": "Expected required property",
+  "expected": { "type": "string" }
+}
+```
+
+**Schema Alignment Strategy**:
+```typescript
+// 1. Check what database actually contains
+const sample = await db.collection('identities').findOne({}, {addresses: 1});
+
+// 2. Make schema match reality, not ideal
+export const AddressEntrySchema = t.Object({
+  address: t.String(),
+  txId: t.Optional(t.String()), // Optional if DB doesn't guarantee it
+  block: t.Optional(t.Number()),
+});
+
+// 3. Map database fields correctly
+addresses: (s.addresses || []).map((addr: DatabaseAddress) => ({
+  address: addr.address || '',
+  txId: addr.txid, // Use actual DB field name, undefined if missing
+  block: addr.block,
+}))
+```
+
+**Header Management in Elysia**:
+```typescript
+// ❌ Wrong - overwrites middleware headers (CORS, etc.)
+set.headers = { 'Cache-Control': 'public, max-age=60' };
+
+// ✅ Correct - preserves existing headers
+Object.assign(set.headers, { 'Cache-Control': 'public, max-age=60' });
+```
+
+**Response Validation Requirements**:
+- All schema fields must be present in response
+- Optional fields need `t.Optional()` or explicit `null` values
+- Missing required fields cause 422 validation errors
+- Response validation is as strict as request validation
+
+### File Organization & Code Navigation
+
+**Finding Schema Definitions**:
+```bash
+# Core schemas (single source of truth)
+schemas/core.ts          # Reusable components, identity, transactions
+social/schemas.ts        # Social-specific schemas
+analytics/schemas.ts     # Analytics-specific schemas
+
+# Implementation files
+bap.ts                   # BAP identity functions
+queries/posts.ts         # Post query logic
+social/routes.ts         # Social endpoint definitions
+```
+
+**Schema Import Strategy**:
+```typescript
+// Always import from core schemas first
+import { BapIdentitySchema, PostsResponseSchema } from '../schemas/core.js';
+
+// Use social/analytics schemas for feature-specific types
+import type { Post, LikeRequest } from './schemas.js';
+```
+
+**Type Safety Enforcement**:
+- No `any` types allowed - use explicit interfaces
+- Database interfaces separate from API response types
+- Runtime validation catches schema mismatches immediately
+- Compile-time types prevent development errors
+
+### Error Handling & Validation Patterns
+
+**Validation Error Debugging Process**:
+1. **Capture Full Error**: `curl endpoint | jq .error` to see complete validation details
+2. **Identify Path**: Error path shows exact field location (e.g., `/signers/0/addresses/0/txId`)
+3. **Check Database**: Verify field exists in database with correct name/type
+4. **Fix Schema**: Make schema optional if field not guaranteed, fix field name mapping
+5. **Test Fix**: Verify endpoint returns success without validation errors
+
+**Common Validation Error Types**:
+```bash
+# Missing required field
+"Expected required property" → Make field optional or ensure it's provided
+
+# Type mismatch  
+"Expected string but found undefined" → Fix field mapping or make optional
+
+# Wrong field name
+"Property not found" → Check database field names vs schema names
+```
+
+**Security-First Validation**:
+```typescript
+// Always default security fields to safe values
+valid: s.valid === true,  // Only true if explicitly validated
+encrypted: s.encrypted || false,  // Default to false for security
+```
+
+**Graceful Error Responses**:
+```typescript
+// Clean validation error formatting
+export function formatValidationError(error: ValidationError): string {
+  // Convert verbose validation errors to simple "field: message" format
+  const field = error.path?.replace(/^\//, '').replace(/\//g, '.') || 'unknown';
+  return `${field}: ${error.message}`;
+}
+```
+
+**Elysia Error Handling Best Practices**:
+```typescript
+// Use proper error types
+throw new NotFoundError('Resource not found');
+throw new ValidationError('Invalid input data');
+throw new ServerError('Internal processing error');
+
+// Handle middleware errors gracefully
+try {
+  const result = await processData();
+  return result;
+} catch (error) {
+  console.error('Processing error:', error);
+  throw new ServerError('Failed to process request');
+}
+```
+
+### Database-Schema Alignment Checklist
+
+**Before Changing Schemas**:
+1. ✅ Check actual database field names and types
+2. ✅ Verify which fields are always present vs sometimes missing
+3. ✅ Test with real data, not just empty collections
+4. ✅ Consider security implications of default values
+
+**Schema Change Process**:
+1. **Database First**: Check what database actually contains
+2. **Schema Second**: Make schema match database reality
+3. **Mapping Third**: Update field mapping in implementation
+4. **Test Fourth**: Verify endpoint works with real data
+5. **Lint Last**: Fix any code style issues
+
+**Field Mapping Rules**:
+```typescript
+// Database field → API field mapping
+interface DatabaseAddress {
+  address?: string;
+  txid?: string;    // Database uses lowercase
+  block?: number;
+}
+
+// Map to API response
+{
+  address: addr.address || '',
+  txId: addr.txid,  // No fallback - let schema handle optionality
+  block: addr.block,
+}
+```
+
+## Database Architecture & Access
+
+### MongoDB Direct Access
+
+**Efficient Database Querying**:
+- Main database: `bsocial` (via `getDbo()`) - transaction data, posts, likes, etc.
+- BAP database: `bap` (via `getBAPDbo()`) - identity data and BAP records
+- Direct mongosh access for debugging: `mongosh bap --eval 'query'`
+- MongoDB playground files for testing complex queries
+
+**Key Collections**:
+- `bsocial.post` - Post transactions and content
+- `bsocial.like` - Like/reaction data
+- `bsocial.follow`/`bsocial.unfollow` - Social graph
+- `bap.identities` - BAP identity records with addresses, profiles
+- `bsocial.c`/`bsocial.u` - Confirmed/unconfirmed transactions
+
+**Database Schema Notes**:
+- Address records use `txid` (lowercase) not `txId` in database
+- Some fields may be missing/optional in database records
+- Always handle undefined/null database fields gracefully
+- Security: `valid` field defaults to false - only true if explicitly validated
+
 ## Architecture
 
 ### Single Source of Truth Design

@@ -74,7 +74,7 @@ export const getSigners = async (addresses: string[]) => {
     currentAddress: s.currentAddress,
     addresses: (s.addresses || []).map((addr: DatabaseAddress) => ({
       address: addr.address || '',
-      txId: addr.txid || '', // Use correct field name from database
+      txId: addr.txid, // Use correct field name from database, undefined if missing
       block: addr.block,
     })),
     block: s.block || 0,
@@ -123,7 +123,7 @@ export const getBAPIdentites = async (idKeys: string[]) => {
     currentAddress: s.currentAddress,
     addresses: (s.addresses || []).map((addr: DatabaseAddress) => ({
       address: addr.address || '',
-      txId: addr.txid || '', // Use correct field name from database
+      txId: addr.txid, // Use correct field name from database, undefined if missing
       block: addr.block,
     })),
     block: s.block || 0,
@@ -201,7 +201,7 @@ export async function searchIdentities({
     currentAddress: s.currentAddress,
     addresses: (s.addresses || []).map((addr: DatabaseAddress) => ({
       address: addr.address || '',
-      txId: addr.txid || '', // Use correct field name from database
+      txId: addr.txid, // Use correct field name from database, undefined if missing
       block: addr.block,
     })),
     block: s.block || 0,

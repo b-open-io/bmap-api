@@ -127,7 +127,7 @@ export const BmapTxSchema = t.Object({
 
 export const AddressEntrySchema = t.Object({
   address: t.String(),
-  txId: t.String(),
+  txId: t.Optional(t.String()),
   block: t.Optional(t.Number()),
 });
 
