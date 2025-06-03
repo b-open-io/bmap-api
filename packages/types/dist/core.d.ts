@@ -153,11 +153,11 @@ export interface BapAddress {
     block?: number;
 }
 /**
- * Identity data (can be string or object)
+ * Identity data (JSON-LD schema.org Person)
  */
 export interface IdentityData {
     '@context'?: string;
-    '@type'?: string;
+    '@type': string;
     alternateName?: string;
     description?: string;
     image?: string;
@@ -169,6 +169,7 @@ export interface IdentityData {
     bitcoinAddress?: string;
     familyName?: string;
     givenName?: string;
+    firstSeen: number;
     homeLocation?: {
         '@type'?: string;
         name?: string;
@@ -184,7 +185,7 @@ export interface BapIdentity {
     rootAddress: string;
     currentAddress: string;
     addresses: BapAddress[];
-    identity: string | IdentityData;
+    identity: IdentityData;
     identityTxId: string;
     block: number;
     timestamp: number;
@@ -192,6 +193,7 @@ export interface BapIdentity {
     paymail?: string;
     displayName?: string;
     icon?: string;
+    firstSeen: number;
 }
 /**
  * Pagination metadata

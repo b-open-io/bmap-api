@@ -1,5 +1,5 @@
 export * from './core';
-export declare const VERSION = "0.0.3";
+export declare const VERSION = "0.0.4";
 export declare const API_VERSION = "v1";
 export type ApiSuccessResponse<T> = {
     status: 'success';
