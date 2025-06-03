@@ -111,13 +111,13 @@ async function main() {
         stdio: 'inherit',
       }
     );
-    
+
     // Run lint fix to ensure clean formatting
     console.log('🧹 Running lint fix before commit...');
     execSync('bun run lint:fix', {
       stdio: 'inherit',
     });
-    
+
     // Re-add files after lint fix
     execSync(
       'git add packages/types/package.json packages/types/src/index.ts packages/types/src/core.ts',
@@ -125,7 +125,7 @@ async function main() {
         stdio: 'inherit',
       }
     );
-    
+
     execSync(`git commit -m "Release types v${newVersion}"`, {
       stdio: 'inherit',
     });
