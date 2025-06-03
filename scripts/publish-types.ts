@@ -41,7 +41,7 @@ function checkGitStatus() {
     execSync('git fetch origin master', { stdio: 'pipe' });
     const localCommit = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
     const remoteCommit = execSync('git rev-parse origin/master', { encoding: 'utf-8' }).trim();
-    
+
     if (localCommit !== remoteCommit) {
       console.error('❌ Local master is not in sync with remote master');
       console.error('   Pull latest changes: git pull origin master');
