@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9] - 2025-06-03
+
+### Fixed
+- **Package Manager Cleanup**: Removed conflicting `package-lock.json` file since project uses bun
+- **MongoDB ObjectId Validation**: Enhanced error handling in `getBAPIdentites()` and `getBAPAddresses()` to filter invalid ObjectId strings
+- **Autofill Schema Validation**: Fixed autofill endpoint to return proper array format for posts field
+- **Friend Schema Alignment**: Corrected field naming and schema structure for friend relationships
+- **Code Quality**: Improved variable naming and removed package-lock.json conflicts
+
+### Added  
+- **Package Manager Protection**: Added `package-lock.json` and `yarn.lock` to `.gitignore` to prevent conflicts with bun
+- **Enhanced Error Validation**: Better ObjectId validation prevents server crashes from malformed IDs
+- **Schema Consistency**: All social endpoints now have proper schema validation
+
+### Changed
+- **Breaking**: Updated `FriendResponseSchema` to use separate schemas for different relationship types
+- Project consistently uses bun for all package management operations
+- Improved error messages for invalid ObjectId inputs
+
 ## [0.0.8] - 2025-06-03
 
 ### Fixed

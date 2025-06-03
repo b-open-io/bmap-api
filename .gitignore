@@ -7,6 +7,10 @@ build
 .env
 .bitcoin
 
+# Package managers - we use bun
+package-lock.json
+yarn.lock
+
 
 playground.mongodb.js
 

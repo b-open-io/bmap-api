@@ -1,4 +1,4 @@
-import { type Static, Type as t } from '@sinclair/typebox';
+import { type Static, t } from 'elysia';
 
 // Request types
 export const NetworkOverviewParams = t.Object({});
