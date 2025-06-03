@@ -1,21 +1,28 @@
 {
   "name": "bmap-api-types",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "TypeScript type definitions for BMAP API",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist/**/*"],
+  "files": [
+    "dist/**/*"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist"
   },
-  "keywords": ["bmap", "bitcoin", "bsv", "types", "typescript"],
+  "keywords": [
+    "bmap",
+    "bitcoin",
+    "bsv",
+    "types",
+    "typescript"
+  ],
   "author": "BMAP API Team",
   "license": "MIT",
   "devDependencies": {
     "typescript": "^5.8.3"
   },
-
   "repository": {
     "type": "git",
     "url": "git+https://github.com/b-open-io/bmap-api.git",
