@@ -1,7 +1,6 @@
 import type { BmapTx } from 'bmapjs';
 import type { ChartConfiguration } from 'chart.js';
 import redis from 'redis';
-import type { BapIdentity } from './bap.js';
 import type { TimeSeriesData } from './chart.js';
 import { CACHE_TTL } from './config/constants.js';
 import { getCurrentBlockHeight } from './db.js';
@@ -14,6 +13,7 @@ import type {
   LikeInfo,
   Reactions,
 } from './social/schemas.js';
+import type { BapIdentity } from './types.js';
 
 const client = redis.createClient({
   url: process.env.REDIS_PRIVATE_URL,

@@ -182,11 +182,11 @@ export interface BapAddress {
 }
 
 /**
- * Identity data (can be string or object)
+ * Identity data (JSON-LD schema.org Person)
  */
 export interface IdentityData {
   '@context'?: string;
-  '@type'?: string;
+  '@type': string; // Required field
   alternateName?: string;
   description?: string;
   image?: string;
@@ -198,6 +198,7 @@ export interface IdentityData {
   bitcoinAddress?: string;
   familyName?: string;
   givenName?: string;
+  firstSeen: number; // Unix timestamp of when identity was first seen
   homeLocation?: {
     '@type'?: string;
     name?: string;
@@ -214,7 +215,7 @@ export interface BapIdentity {
   rootAddress: string; // Root Bitcoin address
   currentAddress: string; // Current active address
   addresses: BapAddress[]; // All addresses for this identity
-  identity: string | IdentityData; // Identity data (JSON string or object)
+  identity: IdentityData; // Identity data object
   identityTxId: string; // Transaction hash of identity
   block: number; // Block height
   timestamp: number; // Unix timestamp
@@ -222,6 +223,7 @@ export interface BapIdentity {
   paymail?: string; // Optional paymail
   displayName?: string; // Computed display name
   icon?: string; // Profile icon URL
+  firstSeen: number; // Unix timestamp of when identity was first seen
 }
 
 // ============================================

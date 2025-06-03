@@ -1,8 +1,8 @@
-import type { BapIdentity } from '../../bap.js';
 import { resolveSigners } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { client, readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
+import type { BapIdentity } from '../../types.js';
 import type { ChannelMessageResponse, BaseMessage as Message } from '../schemas.js';
 
 // Helper function to merge new signers into cache
@@ -125,7 +125,11 @@ export async function getChannelMessages(params: {
   const validatedSigners: BapIdentity[] = signers.map((s) => ({
     ...s,
     identityTxId: s.identityTxId || '',
-    identity: typeof s.identity === 'string' ? s.identity : JSON.stringify(s.identity) || '',
+    identity:
+      s.identity && typeof s.identity === 'object'
+        ? s.identity
+        : { '@type': 'Person', firstSeen: s.firstSeen || s.timestamp || 0 },
+    firstSeen: s.firstSeen || s.timestamp || 0,
   }));
 
   const response: ChannelMessageResponse = {

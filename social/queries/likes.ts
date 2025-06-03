@@ -1,8 +1,8 @@
-import type { BapIdentity } from '../../bap.js';
 import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
+import type { BapIdentity } from '../../types.js';
 import type { LikeTransaction, LikesResponse } from '../../types.js';
 import type { Reaction } from '../schemas.js';
 
@@ -234,7 +234,11 @@ export async function getLikes({
         timestamp: s.timestamp || 0,
         valid: s.valid ?? true,
         identityTxId: s.identityTxId || '',
-        identity: s.identity,
+        identity:
+          s.identity && typeof s.identity === 'object'
+            ? { ...s.identity, '@type': 'Person', firstSeen: s.timestamp || 0 }
+            : { '@type': 'Person', firstSeen: s.timestamp || 0 },
+        firstSeen: s.timestamp || 0,
       })),
   };
 }

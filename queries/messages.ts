@@ -1,11 +1,11 @@
 import type { BmapTx } from 'bmapjs';
 import type { ChangeStream } from 'mongodb';
-import type { BapIdentity } from '../bap.js';
 import { getBAPIdByAddress, getSigners } from '../bap.js';
 import { PROTOCOL_START_BLOCK } from '../constants.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
 import type { DMResponse } from '../social/schemas.js';
+import type { BapIdentity } from '../types.js';
 
 interface MessageQueryParams {
   bapId: string;

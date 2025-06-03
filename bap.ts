@@ -5,13 +5,8 @@ import { type CacheValue, readFromRedis, saveToRedis } from './cache.js';
 import { EXTERNAL_APIS } from './config/constants.js';
 import { getBAPDbo } from './db.js';
 import type { SearchParams } from './social/queries/types.js';
+import type { BapAddress, BapIdentity } from './types.js';
 const { uniq, uniqBy } = _;
-
-interface BapAddress {
-  address: string;
-  txId: string;
-  block?: number;
-}
 
 export interface BapIdentityObject {
   alternateName?: string;
@@ -21,21 +16,6 @@ export interface BapIdentityObject {
   image?: string;
   [key: string]: unknown;
 }
-
-export type BapIdentity = {
-  rootAddress: string;
-  currentAddress: string;
-  addresses: BapAddress[];
-  identity: string | BapIdentityObject;
-  identityTxId: string;
-  idKey: string;
-  block: number;
-  timestamp: number;
-  valid: boolean;
-  paymail?: string;
-  displayName?: string;
-  icon?: string;
-};
 
 const bapApiUrl = EXTERNAL_APIS.BAP;
 
@@ -90,7 +70,11 @@ export const getSigners = async (addresses: string[]) => {
     timestamp: s.timestamp || 0,
     valid: s.valid,
     identityTxId: s.identityTxId || '',
-    identity: s.profile,
+    identity:
+      s.profile && typeof s.profile === 'object'
+        ? { ...s.profile, '@type': 'Person', firstSeen: s.firstSeen || s.timestamp || 0 }
+        : { '@type': 'Person', firstSeen: s.firstSeen || s.timestamp || 0 },
+    firstSeen: s.firstSeen || s.timestamp || 0,
   }));
 };
 
@@ -131,7 +115,11 @@ export const getBAPIdentites = async (idKeys: string[]) => {
     timestamp: s.timestamp || 0,
     valid: s.valid,
     identityTxId: s.identityTxId || '',
-    identity: s.profile,
+    identity:
+      s.profile && typeof s.profile === 'object'
+        ? { ...s.profile, '@type': 'Person', firstSeen: s.firstSeen || s.timestamp || 0 }
+        : { '@type': 'Person', firstSeen: s.firstSeen || s.timestamp || 0 },
+    firstSeen: s.firstSeen || s.timestamp || 0,
   }));
 };
 
@@ -201,6 +189,10 @@ export async function searchIdentities({
     timestamp: s.timestamp || 0,
     valid: s.valid,
     identityTxId: s.identityTxId || '',
-    identity: s.profile,
+    identity:
+      s.profile && typeof s.profile === 'object'
+        ? { ...s.profile, '@type': 'Person', firstSeen: s.firstSeen || s.timestamp || 0 }
+        : { '@type': 'Person', firstSeen: s.firstSeen || s.timestamp || 0 },
+    firstSeen: s.firstSeen || s.timestamp || 0,
   }));
 }

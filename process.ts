@@ -2,8 +2,8 @@ import bmapjs, { type AIP, type BmapTx, type BobTx } from 'bmapjs';
 import { parse } from 'bpu-ts';
 import chalk from 'chalk';
 import { getBAPIdByAddress } from './bap.js';
-import type { BapIdentity } from './bap.js';
 import { getDbo } from './db.js';
+import type { BapIdentity } from './types.js';
 
 const { allProtocols, TransformTx } = bmapjs;
 

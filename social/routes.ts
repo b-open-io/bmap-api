@@ -2,7 +2,6 @@ import type { BmapTx } from 'bmapjs';
 import { Elysia, t } from 'elysia';
 import type { ChangeStreamInsertDocument, Db } from 'mongodb';
 import { getBAPIdByAddress, resolveSigners, searchIdentities } from '../bap.js';
-import type { BapIdentity } from '../bap.js';
 import { client, readFromRedis, saveToRedis } from '../cache.js';
 import type { CacheError, CacheSigner, CacheValue } from '../cache.js';
 import { CACHE_TTL, DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from '../config/constants.js';
@@ -35,6 +34,7 @@ import {
   TargetBapIdParams,
   TxIdParams,
 } from '../schemas/core.js';
+import type { BapIdentity } from '../types.js';
 import { getChannels } from './queries/channels.js';
 import { fetchAllFriendsAndUnfriends, processRelationships } from './queries/friends.js';
 import { fetchBapIdentityData } from './queries/identity.js';

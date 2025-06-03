@@ -1,6 +1,6 @@
-import type { BapIdentity } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
+import type { BapIdentity } from '../../types.js';
 import type { SigmaIdentityAPIResponse, SigmaIdentityResult } from '../schemas.js';
 
 export function sigmaIdentityToBapIdentity(result: SigmaIdentityResult): BapIdentity {
@@ -13,11 +13,15 @@ export function sigmaIdentityToBapIdentity(result: SigmaIdentityResult): BapIden
       txId: '',
       block: result.block,
     })),
-    identity: result.identity,
+    identity:
+      result.identity && typeof result.identity === 'object'
+        ? { ...result.identity, '@type': 'Person', firstSeen: result.timestamp }
+        : { '@type': 'Person', firstSeen: result.timestamp },
     identityTxId: result.identityTxId || '',
     block: result.block,
     timestamp: result.timestamp,
     valid: result.valid || true,
+    firstSeen: result.timestamp,
   };
 }
 
