@@ -252,7 +252,7 @@ export const PaginationQuery = t.Object({
 export const SearchQuery = t.Object({
   q: t.String({ description: 'Search query' }),
   limit: t.Optional(t.String({ description: 'Number of results to return' })),
-  offset: t.Optional(t.String({ description: 'Offset for pagination' })),
+  page: t.Optional(t.String({ description: 'Page number for pagination' })),
 });
 
 // Path parameter schemas

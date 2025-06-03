@@ -1,13 +1,4 @@
-// BMAP API TypeScript Type Definitions
-// Version 0.0.1
-
 export type { Static } from '@sinclair/typebox';
-
-// ============================================
-// SOCIAL API RESPONSE TYPES
-// ============================================
-
-// Friend/Relationship Response Types
 export interface FriendResponse {
   bapId: string;
   displayName?: string;
@@ -18,14 +9,11 @@ export interface FriendResponse {
   blocked: boolean;
   muted: boolean;
 }
-
 export interface AutofillResponse {
   bapId: string;
   displayName?: string;
   avatar?: string;
 }
-
-// Message Response Types
 export interface ChannelMessageResponse {
   channel: string;
   page: number;
@@ -34,14 +22,11 @@ export interface ChannelMessageResponse {
   results: Message[];
   signers: unknown[];
 }
-
 export interface DMResponse {
   messages: Message[];
   lastMessage?: Message;
   signers?: unknown[];
 }
-
-// Post Response Types
 export interface PostResponse {
   _id: string;
   MAP: Array<{
@@ -53,8 +38,13 @@ export interface PostResponse {
     content?: string;
     [key: string]: unknown;
   };
-  tx: { h: string };
-  blk?: { i: number; t: number };
+  tx: {
+    h: string;
+  };
+  blk?: {
+    i: number;
+    t: number;
+  };
   timestamp?: number;
   meta?: {
     likes?: number;
@@ -63,7 +53,6 @@ export interface PostResponse {
     signers?: unknown[];
   };
 }
-
 export interface PostsResponse {
   posts: PostResponse[];
   total: number;
@@ -71,23 +60,17 @@ export interface PostsResponse {
   limit: number;
   hasMore: boolean;
 }
-
-// Like Response Types
 export interface LikeResponse {
   success: boolean;
   txid?: string;
   message?: string;
 }
-
-// Identity Response Types
 export interface IdentityResponse {
   idKey: string;
   paymail: string | null;
   displayName: string;
   icon: string | null;
 }
-
-// Channel Response Types
 export interface ChannelResponse {
   channel: string;
   creator?: string | null;
@@ -97,11 +80,6 @@ export interface ChannelResponse {
   public_read?: boolean;
   public_write?: boolean;
 }
-
-// ============================================
-// ANALYTICS API RESPONSE TYPES
-// ============================================
-
 export interface NetworkOverviewResponse {
   totalTransactions: number;
   totalUsers: number;
@@ -118,7 +96,6 @@ export interface NetworkOverviewResponse {
   peakUsersHour: number;
   topChannels: string[];
 }
-
 export interface TrendingChannelsResponse {
   channels: Array<{
     channel: string;
@@ -130,7 +107,6 @@ export interface TrendingChannelsResponse {
     growthRate: number;
   }>;
 }
-
 export interface NetworkHealthResponse {
   overallHealth: number;
   transactionHealth: number;
@@ -139,7 +115,6 @@ export interface NetworkHealthResponse {
   networkStabilityHealth: number;
   recommendations: string[];
 }
-
 export interface NetworkActivityResponse {
   period: string;
   data: Array<{
@@ -150,7 +125,6 @@ export interface NetworkActivityResponse {
     messages: number;
   }>;
 }
-
 export interface NetworkGrowthResponse {
   period: string;
   data: Array<{
@@ -160,7 +134,6 @@ export interface NetworkGrowthResponse {
     channels: number;
   }>;
 }
-
 export interface AdminStatsResponse {
   totalUsers: number;
   totalTransactions: number;
@@ -175,7 +148,6 @@ export interface AdminStatsResponse {
   cacheHitRate: number;
   databaseConnections: number;
 }
-
 export interface TrendingUsersResponse {
   users: Array<{
     bapId: string;
@@ -188,7 +160,6 @@ export interface TrendingUsersResponse {
     growthRate: number;
   }>;
 }
-
 export interface UserMetricsResponse {
   bapId: string;
   messageCount: number;
@@ -201,7 +172,6 @@ export interface UserMetricsResponse {
   lastActivity: number;
   activityScore: number;
 }
-
 export interface ContentAnalyticsResponse {
   totalContent: number;
   contentToday: number;
@@ -215,7 +185,6 @@ export interface ContentAnalyticsResponse {
   avgContentLength: number;
   engagementRate: number;
 }
-
 export interface TrendingContentResponse {
   content: Array<{
     txId: string;
@@ -229,21 +198,11 @@ export interface TrendingContentResponse {
     score: number;
   }>;
 }
-
-// ============================================
-// CHART API RESPONSE TYPES
-// ============================================
-
 export interface ChartResponse {
   labels: number[];
   values: number[];
   range: number[];
 }
-
-// ============================================
-// CORE API TYPES
-// ============================================
-
 export interface BmapTx {
   tx: {
     h: string;
@@ -251,13 +210,21 @@ export interface BmapTx {
   in: Array<{
     i: number;
     tape: Array<{
-      cell: Array<{ s?: string; h?: string; b?: string }>;
+      cell: Array<{
+        s?: string;
+        h?: string;
+        b?: string;
+      }>;
     }>;
   }>;
   out: Array<{
     i: number;
     tape: Array<{
-      cell: Array<{ s?: string; h?: string; b?: string }>;
+      cell: Array<{
+        s?: string;
+        h?: string;
+        b?: string;
+      }>;
     }>;
   }>;
   timestamp?: number;
@@ -266,7 +233,6 @@ export interface BmapTx {
     t: number;
   };
 }
-
 export interface BapIdentity {
   idKey: string;
   rootAddress: string;
@@ -274,7 +240,6 @@ export interface BapIdentity {
   identity?: unknown;
   valid: boolean;
 }
-
 export interface Post {
   txId: string;
   author: string;
@@ -282,7 +247,6 @@ export interface Post {
   timestamp: number;
   likes?: number;
 }
-
 export interface Message {
   txId: string;
   author: string;
@@ -290,13 +254,11 @@ export interface Message {
   timestamp: number;
   channel?: string;
 }
-
 export interface Friend {
   bapId: string;
   displayName?: string;
   avatar?: string;
 }
-
 export interface Like {
   txId: string;
   author: string;
@@ -304,29 +266,21 @@ export interface Like {
   emoji?: string;
   timestamp: number;
 }
-
-// ============================================
-// REQUEST/RESPONSE WRAPPER TYPES
-// ============================================
-
 export interface PaginationParams {
   page?: string;
   limit?: string;
 }
-
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
 }
-
 export interface ErrorResponse {
   success: false;
   error: string;
   code?: string;
   details?: unknown;
 }
-
 export interface SuccessResponse<T = unknown> {
   success: true;
   data: T;
@@ -337,37 +291,27 @@ export interface SuccessResponse<T = unknown> {
     hasMore?: boolean;
   };
 }
-
 export interface SearchParams {
   q: string;
   page?: string;
   limit?: string;
 }
-
-// ============================================
-// PARAMETER TYPES
-// ============================================
-
 export interface BapIdParams {
   bapId: string;
 }
-
 export interface TxIdParams {
   txId: string;
 }
-
 export interface AddressParams {
   address: string;
 }
-
 export interface ChannelParams {
   channel: string;
 }
-
 export interface ChartParams {
   name?: string;
 }
-
 export interface ChartQuery {
   timeframe?: string;
 }
+//# sourceMappingURL=index.d.ts.map

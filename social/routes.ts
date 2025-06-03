@@ -276,24 +276,23 @@ export const socialRoutes = new Elysia()
     '/post/search',
     async ({ query }) => {
       try {
-        const { q, limit, offset } = query;
+        const { q, limit, page } = query;
         if (!q) {
           throw new Error('q param is required');
         }
 
-        const results = await searchPosts({
-          q,
-          limit: limit ? Number.parseInt(limit, 10) : 100,
-          offset: offset ? Number.parseInt(offset, 10) : 0,
-        });
+        const pageNum = page ? Number.parseInt(page, 10) : 1;
+        const limitNum = limit ? Number.parseInt(limit, 10) : 100;
+        const offset = (pageNum - 1) * limitNum;
 
-        return {
-          status: 'OK',
-          result: results,
-        };
+        return await searchPosts({
+          q,
+          limit: limitNum,
+          offset,
+        });
       } catch (error: unknown) {
-        console.error('Error fetching autofill data:', error);
-        throw new Error('Failed to fetch autofill data');
+        console.error('Error searching posts:', error);
+        throw new Error('Failed to search posts');
       }
     },
     {

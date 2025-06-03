@@ -453,14 +453,63 @@ async function getFollows(bapId: string) {
   return getBAPIdentites([...followMap.keys()]);
 }
 
-export async function searchPosts({ q, limit = 10, offset = 0 }: SearchParams): Promise<BmapTx[]> {
+export async function searchPosts({
+  q,
+  limit = 10,
+  offset = 0,
+}: SearchParams): Promise<PostsResponse> {
   const db = await getDbo();
-  const pipeline = [
-    { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
-    { $skip: offset },
-    { $limit: limit },
-  ];
-  const results = await db.collection('post').aggregate(pipeline).toArray();
 
-  return results.map((doc) => normalizePost(doc.post || doc));
+  // First try MongoDB Atlas Search
+  let results: Array<{ post?: BmapTx } & BmapTx> = [];
+  try {
+    const pipeline = [
+      { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
+      { $skip: offset },
+      { $limit: limit },
+    ];
+    results = await db.collection('post').aggregate(pipeline).toArray();
+  } catch (error) {
+    console.warn('Atlas Search failed, falling back to text search:', error);
+
+    // Fallback to regex text search on B.content
+    const textQuery = {
+      'MAP.tx': null,
+      'B.content': { $regex: q, $options: 'i' },
+    };
+
+    results = await db
+      .collection('post')
+      .find(textQuery)
+      .sort({ timestamp: -1 })
+      .skip(offset)
+      .limit(limit)
+      .toArray();
+  }
+
+  // Get unique signer addresses from results
+  const signerAddresses = new Set<string>();
+  for (const doc of results) {
+    const post = doc.post || doc;
+    if (!post.AIP) continue;
+    for (const aip of post.AIP) {
+      if (aip.address) {
+        signerAddresses.add(aip.address);
+      }
+    }
+  }
+
+  // Get BAP identities for all signers
+  const signers = await getSigners([...signerAddresses]);
+
+  const page = Math.floor(offset / limit) + 1;
+
+  return {
+    page,
+    limit,
+    count: results.length,
+    results: results.map((doc) => normalizePost(doc.post || doc)),
+    signers,
+    meta: [], // TODO: Add meta data for search results if needed
+  };
 }
