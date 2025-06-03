@@ -2,7 +2,7 @@
 export * from './core';
 
 // Export version info
-export const VERSION = '0.0.6';
+export const VERSION = '0.0.7';
 export const API_VERSION = 'v1';
 
 // Export commonly used utility types
