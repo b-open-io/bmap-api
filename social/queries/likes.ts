@@ -3,7 +3,7 @@ import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
-import type { PostsResponse } from '../../queries/posts.js';
+import type { LikeTransaction, LikesResponse } from '../../types.js';
 import type { Reaction } from '../schemas.js';
 
 // Like document from MongoDB
@@ -170,7 +170,7 @@ export async function getLikes({
   bapId,
   page = 1,
   limit = 100,
-}: LikesParams): Promise<PostsResponse> {
+}: LikesParams): Promise<LikesResponse> {
   const dbo = await getDbo();
   const skip = (page - 1) * limit;
 
@@ -190,16 +190,22 @@ export async function getLikes({
   }
 
   console.log('Querying posts with params:', query, 'page:', page, 'limit:', limit);
-  const [results, count] = await Promise.all([
-    dbo.collection('like').find(query).sort({ timestamp: -1 }).skip(skip).limit(limit).toArray(),
+  const [rawResults, count] = await Promise.all([
+    dbo
+      .collection<LikeTransaction>('like')
+      .find(query)
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray(),
     dbo.collection('like').countDocuments(query),
   ]);
 
   // Get unique signer addresses
   const signerAddresses = new Set<string>();
-  for (const msg of results) {
-    if (!msg.AIP) continue;
-    for (const aip of msg.AIP) {
+  for (const like of rawResults) {
+    if (!like.AIP) continue;
+    for (const aip of like.AIP) {
       if (aip.address) {
         signerAddresses.add(aip.address);
       }
@@ -211,24 +217,12 @@ export async function getLikes({
     Array.from(signerAddresses).map((address) => getBAPIdByAddress(address))
   );
 
-  console.log('Results:', results);
+  console.log('Results:', rawResults);
   return {
     page,
     limit,
     count,
-    results: results.map((msg) => ({
-      ...msg,
-      tx: { h: msg.tx?.h || '' },
-      blk: msg.blk || { i: 0, t: 0 },
-      timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
-      MAP: msg.MAP,
-      B:
-        msg.B?.map((b) => ({
-          encoding: b?.encoding || '',
-          content: b?.content || '',
-          'content-type': b?.['content-type'] || '',
-        })) || [],
-    })),
+    results: rawResults,
     signers: signers
       .filter((s) => s)
       .map((s) => ({

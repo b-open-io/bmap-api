@@ -1,46 +1,21 @@
-import type { BmapTx } from 'bmapjs';
 import { type BapIdentity, getBAPIdentites, getSigners } from '../bap.js';
 import { getDbo } from '../db.js';
 import { NotFoundError } from '../middleware/errorHandler.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
-import type { SearchParams } from '../social/queries/types.js';
+import type {
+  PostMeta,
+  PostResponse,
+  PostTransaction,
+  PostsParams,
+  PostsResponse,
+  RepliesParams,
+  SearchParams,
+} from '../types.js';
 
-export interface PostsParams {
-  bapId?: string;
-  feed?: boolean;
-  address?: string;
-  page: number;
-  limit: number;
-}
-
-export interface RepliesParams {
-  txid?: string;
-  page: number;
-  limit: number;
-}
-
-export interface PostsResponse {
-  bapID?: string;
-  page: number;
-  limit: number;
-  count: number;
-  results: BmapTx[];
-  signers: BapIdentity[];
-  meta?: Meta[];
-}
-
-export interface Meta {
-  tx: string;
-  likes: number;
-  reactions: {
-    emoji: string;
-    count: number;
-  }[];
-  replies: number;
-}
+// All interfaces now imported from types.ts
 
 // Helper function to normalize post data
-function normalizePost(post: BmapTx): BmapTx {
+function normalizePost(post: PostTransaction): PostTransaction {
   return {
     ...post,
     tx: { h: post.tx?.h || '' },
@@ -56,6 +31,7 @@ function normalizePost(post: BmapTx): BmapTx {
         encoding: b?.encoding || '',
         content: b?.content || '',
         'content-type': b?.['content-type'] || '',
+        filename: b?.filename || '',
       })) || [],
   };
 }
@@ -183,12 +159,6 @@ function createPostMetaPipeline(skipSteps?: unknown[]): unknown[] {
   return pipeline;
 }
 
-export interface PostResponse {
-  post: BmapTx;
-  signers: BapIdentity[];
-  meta: Meta;
-}
-
 export async function getPost(txid: string): Promise<PostResponse> {
   const dbo = await getDbo();
 
@@ -197,7 +167,10 @@ export async function getPost(txid: string): Promise<PostResponse> {
     { $match: { _id: txid } },
   ]);
 
-  const posts = await dbo.collection<BmapTx>('post').aggregate(aggregationPipeline).toArray();
+  const posts = await dbo
+    .collection<PostTransaction>('post')
+    .aggregate(aggregationPipeline)
+    .toArray();
 
   if (!posts.length) {
     throw new NotFoundError(`Post with txid ${txid} not found`);
@@ -459,16 +432,20 @@ export async function searchPosts({
   offset = 0,
 }: SearchParams): Promise<PostsResponse> {
   const db = await getDbo();
+  const postCollection = db.collection<PostTransaction>('post');
 
-  // First try MongoDB Atlas Search
-  let results: Array<{ post?: BmapTx } & BmapTx> = [];
+  let results: PostTransaction[] = [];
   try {
+    // First try MongoDB Atlas Search
     const pipeline = [
       { $search: { index: 'default', text: { query: q, path: { wildcard: '*' } } } },
       { $skip: offset },
       { $limit: limit },
     ];
-    results = await db.collection('post').aggregate(pipeline).toArray();
+
+    // MongoDB aggregate always returns Document[], we need to cast to our type
+    const aggregateResults = await postCollection.aggregate(pipeline).toArray();
+    results = aggregateResults.map((doc) => doc as PostTransaction);
   } catch (error) {
     console.warn('Atlas Search failed, falling back to text search:', error);
 
@@ -478,8 +455,8 @@ export async function searchPosts({
       'B.content': { $regex: q, $options: 'i' },
     };
 
-    results = await db
-      .collection('post')
+    // find() with proper typing returns the correct type
+    results = await postCollection
       .find(textQuery)
       .sort({ timestamp: -1 })
       .skip(offset)
@@ -490,9 +467,8 @@ export async function searchPosts({
   // Get unique signer addresses from results
   const signerAddresses = new Set<string>();
   for (const doc of results) {
-    const post = doc.post || doc;
-    if (!post.AIP) continue;
-    for (const aip of post.AIP) {
+    if (!doc.AIP) continue;
+    for (const aip of doc.AIP) {
       if (aip.address) {
         signerAddresses.add(aip.address);
       }
@@ -508,7 +484,7 @@ export async function searchPosts({
     page,
     limit,
     count: results.length,
-    results: results.map((doc) => normalizePost(doc.post || doc)),
+    results: results.map((doc) => normalizePost(doc)),
     signers,
     meta: [], // TODO: Add meta data for search results if needed
   };
