@@ -7,8 +7,7 @@
   "files": ["dist/**/*"],
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build"
+    "clean": "rm -rf dist"
   },
   "keywords": ["bmap", "bitcoin", "bsv", "types", "typescript"],
   "author": "BMAP API Team",

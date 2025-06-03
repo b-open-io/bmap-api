@@ -9,27 +9,70 @@ const PACKAGE_JSON_PATH = join(TYPES_DIR, 'package.json');
 const MAIN_TYPES_PATH = 'types.ts';
 const TARGET_TYPES_PATH = join(TYPES_DIR, 'src/core.ts');
 
+function checkGitStatus() {
+  console.log('🔍 Checking git status...');
+
+  // Check if on master branch
+  const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+    encoding: 'utf-8',
+  }).trim();
+
+  if (currentBranch !== 'master') {
+    console.error(`❌ Must be on master branch. Currently on: ${currentBranch}`);
+    console.error('   Switch to master: git checkout master');
+    process.exit(1);
+  }
+  console.log('✅ On master branch');
+
+  // Check if working directory is clean
+  const status = execSync('git status --porcelain', {
+    encoding: 'utf-8',
+  }).trim();
+
+  if (status) {
+    console.error('❌ Working directory is not clean. Please commit all changes first:');
+    console.error(status);
+    process.exit(1);
+  }
+  console.log('✅ Working directory is clean');
+}
+
 async function main() {
   console.log('🚀 Starting automated types publishing process...');
 
   try {
+    // Step 0: Check git status
+    checkGitStatus();
+
     // Step 1: Copy main types to packages/types/src/core.ts
     console.log('📋 Copying types from main types.ts to packages/types/src/core.ts...');
     const mainTypes = readFileSync(MAIN_TYPES_PATH, 'utf-8');
     writeFileSync(TARGET_TYPES_PATH, mainTypes);
     console.log('✅ Types copied successfully');
 
-    // Step 2: Bump version in package.json
-    console.log('📦 Reading current package.json...');
-    const packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8'));
-    const currentVersion = packageJson.version;
+    // Step 2: Get latest version from npm and bump
+    console.log('🔍 Checking latest version on npm...');
+    let latestNpmVersion = '0.0.0';
+    try {
+      const npmInfo = execSync('npm view bmap-api-types version', {
+        stdio: 'pipe',
+        encoding: 'utf-8',
+      });
+      latestNpmVersion = npmInfo.trim();
+      console.log(`📦 Latest npm version: ${latestNpmVersion}`);
+    } catch {
+      console.log('📦 Package not found on npm, starting from 0.0.0');
+    }
 
     // Parse version and bump patch
-    const versionParts = currentVersion.split('.').map(Number);
+    const versionParts = latestNpmVersion.split('.').map(Number);
     versionParts[2] += 1; // Bump patch version (0.0.x)
     const newVersion = versionParts.join('.');
 
-    console.log(`🔄 Bumping version from ${currentVersion} to ${newVersion}`);
+    console.log('📦 Reading current package.json...');
+    const packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8'));
+
+    console.log(`🔄 Bumping version from ${latestNpmVersion} to ${newVersion}`);
     packageJson.version = newVersion;
     writeFileSync(PACKAGE_JSON_PATH, `${JSON.stringify(packageJson, null, 2)}\n`);
 
@@ -43,16 +86,36 @@ async function main() {
     );
     writeFileSync(indexPath, indexContent);
 
-    // Step 4: Build the package
+    // Step 4: Create release commit
+    console.log('📝 Creating release commit...');
+    execSync(
+      'git add packages/types/package.json packages/types/src/index.ts packages/types/src/core.ts',
+      {
+        stdio: 'inherit',
+      }
+    );
+    execSync(`git commit -m "Release types v${newVersion}"`, {
+      stdio: 'inherit',
+    });
+    console.log(`✅ Created release commit for v${newVersion}`);
+
+    // Step 5: Clean and build the package
+    console.log('🧹 Cleaning previous build...');
+    execSync('npm run clean', {
+      cwd: TYPES_DIR,
+      stdio: 'inherit',
+    });
+
     console.log('🔨 Building package...');
-    execSync('bun run build', {
+    execSync('npm run build', {
       cwd: TYPES_DIR,
       stdio: 'inherit',
     });
     console.log('✅ Package built successfully');
 
-    // Step 5: Check if we should publish
+    // Step 6: Check if we should publish
     const shouldPublish = process.argv.includes('--publish');
+    const isDryRun = process.argv.includes('--dry-run');
 
     if (shouldPublish) {
       console.log('📤 Publishing to npm...');
@@ -60,21 +123,35 @@ async function main() {
       // Check if logged in to npm
       try {
         execSync('npm whoami', { stdio: 'pipe' });
+        console.log('✅ npm login verified');
       } catch {
         console.error('❌ Not logged in to npm. Please run: npm login');
         process.exit(1);
       }
 
+      // Since we already checked npm and bumped from latest, version should be available
+      console.log(`✅ Version ${newVersion} is available (bumped from npm registry)`);
+
       // Publish the package
-      execSync('npm publish --access public', {
-        cwd: TYPES_DIR,
-        stdio: 'inherit',
-      });
-      console.log(`✅ Published bmap-api-types@${newVersion} successfully!`);
+      console.log('📤 Publishing to npm registry...');
+      if (isDryRun) {
+        console.log('🔍 DRY RUN: Would publish to npm but --dry-run flag was used');
+        console.log('📦 Command would be: npm publish --access public');
+        console.log('🔄 Rolling back release commit for dry run...');
+        execSync('git reset --hard HEAD~1', { stdio: 'inherit' });
+      } else {
+        execSync('npm publish --access public', {
+          cwd: TYPES_DIR,
+          stdio: 'inherit',
+        });
+        console.log(`✅ Published bmap-api-types@${newVersion} successfully!`);
+        console.log(`🔗 https://www.npmjs.com/package/bmap-api-types/v/${newVersion}`);
+      }
     } else {
       console.log('📦 Package built but not published. Use --publish flag to publish.');
       console.log(`🏷️  New version: ${newVersion}`);
       console.log(`📁 Built files are in: ${TYPES_DIR}/dist/`);
+      console.log('💡 Release commit created. Push with: git push origin master');
     }
 
     console.log('🎉 Types generation completed successfully!');
