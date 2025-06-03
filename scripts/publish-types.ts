@@ -35,6 +35,23 @@ function checkGitStatus() {
     process.exit(1);
   }
   console.log('✅ Working directory is clean');
+
+  // Check if local master is in sync with remote
+  try {
+    execSync('git fetch origin master', { stdio: 'pipe' });
+    const localCommit = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+    const remoteCommit = execSync('git rev-parse origin/master', { encoding: 'utf-8' }).trim();
+    
+    if (localCommit !== remoteCommit) {
+      console.error('❌ Local master is not in sync with remote master');
+      console.error('   Pull latest changes: git pull origin master');
+      process.exit(1);
+    }
+    console.log('✅ Local master is in sync with remote');
+  } catch (error) {
+    console.error('❌ Failed to check remote sync:', error);
+    process.exit(1);
+  }
 }
 
 async function main() {
@@ -99,7 +116,14 @@ async function main() {
     });
     console.log(`✅ Created release commit for v${newVersion}`);
 
-    // Step 5: Clean and build the package
+    // Step 5: Push release commit to remote
+    console.log('📤 Pushing release commit to remote...');
+    execSync('git push origin master', {
+      stdio: 'inherit',
+    });
+    console.log('✅ Release commit pushed to remote');
+
+    // Step 6: Clean and build the package
     console.log('🧹 Cleaning previous build...');
     execSync('npm run clean', {
       cwd: TYPES_DIR,
@@ -113,7 +137,7 @@ async function main() {
     });
     console.log('✅ Package built successfully');
 
-    // Step 6: Check if we should publish
+    // Step 7: Check if we should publish
     const shouldPublish = process.argv.includes('--publish');
     const isDryRun = process.argv.includes('--dry-run');
 
@@ -137,8 +161,9 @@ async function main() {
       if (isDryRun) {
         console.log('🔍 DRY RUN: Would publish to npm but --dry-run flag was used');
         console.log('📦 Command would be: npm publish --access public');
-        console.log('🔄 Rolling back release commit for dry run...');
+        console.log('🔄 Rolling back release commit and push for dry run...');
         execSync('git reset --hard HEAD~1', { stdio: 'inherit' });
+        execSync('git push --force-with-lease origin master', { stdio: 'inherit' });
       } else {
         execSync('npm publish --access public', {
           cwd: TYPES_DIR,
@@ -151,7 +176,7 @@ async function main() {
       console.log('📦 Package built but not published. Use --publish flag to publish.');
       console.log(`🏷️  New version: ${newVersion}`);
       console.log(`📁 Built files are in: ${TYPES_DIR}/dist/`);
-      console.log('💡 Release commit created. Push with: git push origin master');
+      console.log('✅ Release commit created and pushed to remote');
     }
 
     console.log('🎉 Types generation completed successfully!');
