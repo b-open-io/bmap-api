@@ -253,6 +253,21 @@ export interface PostMeta {
 }
 
 /**
+ * Message metadata (read receipts, reactions, delivery status)
+ */
+export interface MessageMeta {
+  tx: string; // Transaction hash
+  readBy: string[]; // Array of BAP IDs who read it
+  reactions: Array<{
+    emoji: string;
+    count: number;
+  }>;
+  delivered: boolean; // Delivery confirmation
+  edited?: boolean; // If message was edited
+  editedAt?: number; // Timestamp of last edit
+}
+
+/**
  * Posts response (for feeds, user posts, etc.)
  */
 export interface PostsResponse extends PaginationMeta {
@@ -278,6 +293,7 @@ export interface MessagesResponse extends PaginationMeta {
   bapID?: string;
   results: MessageTransaction[];
   signers: BapIdentity[];
+  meta: MessageMeta[];
 }
 
 /**
