@@ -69,7 +69,10 @@ interface ErrorHandlerContext {
 /**
  * Create a cleaner validation error response
  */
-function formatValidationError(error: ValidationErrorDetails): { error: string; details?: Record<string, string[]> } {
+function formatValidationError(error: ValidationErrorDetails): {
+  error: string;
+  details?: Record<string, string[]>;
+} {
   // Check if it's a validation error with the validator property
   if (error.validator && error.all) {
     const errors = error.all;
