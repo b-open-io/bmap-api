@@ -173,12 +173,12 @@ export interface UnfollowTransaction extends BaseTransaction {
 // ============================================
 
 /**
- * Address with transaction history
+ * BAP Address (Bitcoin address used by BAP identity)
  */
 export interface BapAddress {
   address: string;
   txId: string;
-  block?: number;
+  block: number; // Block height where address was first used
 }
 
 /**

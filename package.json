@@ -44,7 +44,6 @@
     "migrate:b-data": "bun run scripts/migrate-b-data-to-content.ts",
     "build:types": "bun scripts/publish-types.ts",
     "publish:types": "bun scripts/publish-types.ts --publish",
-    "publish:types:dry": "bun scripts/publish-types.ts --publish --dry-run",
-    "prepublish:types": "bun scripts/publish-types.ts"
+    "publish:types:dry": "bun scripts/publish-types.ts --publish --dry-run"
   }
 }
