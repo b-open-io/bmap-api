@@ -255,10 +255,17 @@ export const FriendSchema = t.Object({
   txids: t.Optional(t.Array(t.String())),
 });
 
+// Friend request structure (for incoming/outgoing)
+export const FriendRequestSchema = t.Object({
+  bapId: t.String(),
+  txid: t.Optional(t.String()),
+  height: t.Optional(t.Number()),
+});
+
 export const FriendResponseSchema = t.Object({
   friends: t.Array(FriendSchema),
-  incoming: t.Array(FriendSchema),
-  outgoing: t.Array(FriendSchema),
+  incoming: t.Array(FriendRequestSchema),
+  outgoing: t.Array(FriendRequestSchema),
 });
 
 // Channel information

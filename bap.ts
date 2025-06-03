@@ -91,10 +91,26 @@ export const getSigners = async (addresses: string[]) => {
 
 export const getBAPAddresses = async (idKeys: string[]) => {
   const db = await getBAPDbo();
+
+  // Filter out invalid ObjectId strings to prevent BSONError
+  const validIds = idKeys.filter((id) => {
+    try {
+      new ObjectId(id);
+      return true;
+    } catch {
+      console.warn(`Invalid ObjectId: ${id}`);
+      return false;
+    }
+  });
+
+  if (validIds.length === 0) {
+    return [];
+  }
+
   const identities = await db
     .collection('identities')
     .find(
-      { _id: { $in: idKeys.map((id) => new ObjectId(id)) } },
+      { _id: { $in: validIds.map((id) => new ObjectId(id)) } },
       { projection: { addresses: { address: 1 } } }
     )
     .toArray();
@@ -112,9 +128,25 @@ export const getBAPAddresses = async (idKeys: string[]) => {
 
 export const getBAPIdentites = async (idKeys: string[]) => {
   const db = await getBAPDbo();
+
+  // Filter out invalid ObjectId strings to prevent BSONError
+  const validIds = idKeys.filter((id) => {
+    try {
+      new ObjectId(id);
+      return true;
+    } catch {
+      console.warn(`Invalid ObjectId: ${id}`);
+      return false;
+    }
+  });
+
+  if (validIds.length === 0) {
+    return [];
+  }
+
   const identities = await db
     .collection('identities')
-    .find({ _id: { $in: idKeys.map((id) => new ObjectId(id)) } })
+    .find({ _id: { $in: validIds.map((id) => new ObjectId(id)) } })
     .toArray();
 
   return identities.map((s) => ({

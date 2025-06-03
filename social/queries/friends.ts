@@ -200,20 +200,20 @@ export async function processRelationships(
 
     if (rel.fromMe && rel.fromThem) {
       friends.push({
-        bapID: other,
+        bapId: other,
         mePublicKey: rel.mePublicKey || '',
         themPublicKey: rel.themPublicKey || '',
         txids: rel.txids ? [...rel.txids] : [],
       });
     } else if (rel.fromMe && !rel.fromThem) {
       outgoing.push({
-        bapID: other,
+        bapId: other,
         txid: rel.txid || '',
         height: rel.height || 0,
       });
     } else if (!rel.fromMe && rel.fromThem) {
       incoming.push({
-        bapID: other,
+        bapId: other,
         txid: rel.txid || '',
         height: rel.height || 0,
       });

@@ -14,6 +14,7 @@ import {
   AutofillQuery,
   AutofillResponse,
   BapIdParams,
+  BapIdentitySchema,
   ChannelMessageSchema,
   ChannelParams,
   ChannelResponseSchema,
@@ -205,14 +206,14 @@ export const socialRoutes = new Elysia()
             result: JSON.parse(cached),
           };
         }
-        const [identites, posts] = await Promise.all([
+        const [identites, postsResponse] = await Promise.all([
           searchIdentities({ q, limit: 3, offset: 0 }),
           searchPosts({ q, limit: 10, offset: 0 }),
         ]);
 
         const result = {
           identities: identites,
-          posts: posts,
+          posts: postsResponse.results,
         };
         client.hSet('autofill', q, JSON.stringify(result));
         client.hExpire('autofill', q, CACHE_TTL.AUTOFILL);
@@ -263,7 +264,7 @@ export const socialRoutes = new Elysia()
       query: SearchQuery,
       response: t.Object({
         status: t.String(),
-        result: IdentityResponseSchema,
+        result: t.Array(BapIdentitySchema),
       }),
       detail: {
         tags: ['identities'],
@@ -846,7 +847,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
-      response: IdentityResponseSchema,
+      response: t.Array(BapIdentitySchema),
       detail: identityEndpointDetail,
     }
   );
