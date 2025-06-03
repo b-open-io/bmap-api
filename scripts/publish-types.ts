@@ -86,7 +86,7 @@ async function main() {
     );
     writeFileSync(indexPath, indexContent);
 
-    // Step 4: Create release commit
+    // Step 4: Create release commit (always, regardless of publish flag)
     console.log('📝 Creating release commit...');
     execSync(
       'git add packages/types/package.json packages/types/src/index.ts packages/types/src/core.ts',
