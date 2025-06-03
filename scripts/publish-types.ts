@@ -103,7 +103,13 @@ async function main() {
     );
     writeFileSync(indexPath, indexContent);
 
-    // Step 4: Create release commit (always, regardless of publish flag)
+    // Step 4: Run lint fix to ensure clean formatting before commit
+    console.log('🧹 Running lint fix before commit...');
+    execSync('bun run lint:fix', {
+      stdio: 'inherit',
+    });
+
+    // Step 5: Create release commit (always, regardless of publish flag)
     console.log('📝 Creating release commit...');
     execSync(
       'git add packages/types/package.json packages/types/src/index.ts packages/types/src/core.ts',
@@ -112,33 +118,29 @@ async function main() {
       }
     );
 
-    // Run lint fix to ensure clean formatting
-    console.log('🧹 Running lint fix before commit...');
-    execSync('bun run lint:fix', {
-      stdio: 'inherit',
-    });
+    // Check if there are actually changes to commit
+    const statusCheck = execSync('git status --porcelain --cached', {
+      encoding: 'utf-8',
+    }).trim();
 
-    // Re-add files after lint fix
-    execSync(
-      'git add packages/types/package.json packages/types/src/index.ts packages/types/src/core.ts',
-      {
-        stdio: 'inherit',
-      }
-    );
+    if (!statusCheck) {
+      console.error('❌ No changes to commit after processing');
+      process.exit(1);
+    }
 
     execSync(`git commit -m "Release types v${newVersion}"`, {
       stdio: 'inherit',
     });
     console.log(`✅ Created release commit for v${newVersion}`);
 
-    // Step 5: Push release commit to remote
+    // Step 6: Push release commit to remote
     console.log('📤 Pushing release commit to remote...');
     execSync('git push origin master', {
       stdio: 'inherit',
     });
     console.log('✅ Release commit pushed to remote');
 
-    // Step 6: Clean and build the package
+    // Step 7: Clean and build the package
     console.log('🧹 Cleaning previous build...');
     execSync('npm run clean', {
       cwd: TYPES_DIR,
@@ -152,7 +154,7 @@ async function main() {
     });
     console.log('✅ Package built successfully');
 
-    // Step 7: Check if we should publish
+    // Step 8: Check if we should publish
     const shouldPublish = process.argv.includes('--publish');
     const isDryRun = process.argv.includes('--dry-run');
 
