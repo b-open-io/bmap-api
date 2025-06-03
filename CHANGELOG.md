@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.8] - 2025-06-03
+
+### Fixed
+- **MongoDB ObjectId Error**: Fixed BSONError in feed endpoint by adding validation to filter invalid ObjectId strings in `getBAPIdentites()` and `getBAPAddresses()` functions
+- **Autofill Schema Mismatch**: Fixed validation error in `/social/autofill` endpoint by returning only `results` array instead of full `PostsResponse` object
+- **Friend Endpoint Schema Issues**: 
+  - Fixed field name mismatch (`bapID` vs `bapId`) in friend response processing
+  - Added separate `FriendRequestSchema` for incoming/outgoing arrays (breaking change)
+  - Corrected `FriendResponseSchema` to use proper schemas for each array type
+
+### Added
+- **Enhanced Schema Validation**: Added `FriendRequestSchema` for proper typing of friend request objects
+- **API Error Prevention**: Added ObjectId validation to prevent server crashes from invalid IDs
+- **Code Quality**: Shortened variable names (`validIdKeys` → `validIds`) per project style
+
+### Changed
+- **Breaking Change**: `FriendResponseSchema.incoming` and `FriendResponseSchema.outgoing` now use `FriendRequestSchema` instead of `FriendSchema`
+- Updated friend processing functions to use consistent field naming conventions
+- Improved error handling in BAP identity lookup functions
+
+### Technical
+- Systematic endpoint validation using our established debugging methodology
+- All validation errors resolved through schema-database alignment
+- Maintained security-first validation patterns
+
 ## [0.0.7] - 2025-06-03
 
 ### Fixed
