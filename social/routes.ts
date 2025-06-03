@@ -17,7 +17,6 @@ import {
   ChannelMessageSchema,
   ChannelParams,
   ChannelResponseSchema,
-  DMResponseSchema,
   ErrorResponse,
   FeedParams,
   FriendResponseSchema,
@@ -25,6 +24,7 @@ import {
   LikeRequestSchema,
   LikeResponseSchema,
   MessageListenParams,
+  MessagesResponseSchema,
   PaginationQuery,
   PostQuery,
   PostResponseSchema,
@@ -650,13 +650,14 @@ export const socialRoutes = new Elysia()
           count: 0,
           results: [],
           signers: [],
+          meta: [],
         };
       }
     },
     {
       params: BapIdParams,
       query: PaginationQuery,
-      response: DMResponseSchema,
+      response: MessagesResponseSchema,
       detail: directMessagesEndpointDetail,
     }
   )
@@ -683,13 +684,14 @@ export const socialRoutes = new Elysia()
           count: 0,
           results: [],
           signers: [],
+          meta: [],
         };
       }
     },
     {
       params: TargetBapIdParams,
       query: PaginationQuery,
-      response: DMResponseSchema,
+      response: MessagesResponseSchema,
       detail: directMessagesWithTargetEndpointDetail,
     }
   )

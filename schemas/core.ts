@@ -176,6 +176,21 @@ export const BapIdentitySchema = t.Object({
 // MESSAGE SCHEMAS (CONSOLIDATED)
 // ============================================
 
+// Message metadata schema
+export const MessageMetaSchema = t.Object({
+  tx: t.String(), // Transaction hash
+  readBy: t.Array(t.String()), // Array of BAP IDs who read it
+  reactions: t.Array(
+    t.Object({
+      emoji: t.String(),
+      count: t.Number(),
+    })
+  ),
+  delivered: t.Boolean(), // Delivery confirmation
+  edited: t.Optional(t.Boolean()), // If message was edited
+  editedAt: t.Optional(t.Number()), // Timestamp of last edit
+});
+
 // Message content structure
 export const MessageContentSchema = t.Object({
   bapId: t.String(),
@@ -185,6 +200,17 @@ export const MessageContentSchema = t.Object({
   timestamp: t.Number(),
   blk: BlockSchema,
   _id: t.String(),
+});
+
+// Messages response with metadata (NEW)
+export const MessagesResponseSchema = t.Object({
+  bapID: t.Optional(t.String()),
+  page: t.Number(),
+  limit: t.Number(),
+  count: t.Number(),
+  results: t.Array(BmapTxSchema),
+  signers: t.Array(BapIdentitySchema),
+  meta: t.Array(MessageMetaSchema),
 });
 
 // Direct message response (SINGLE SOURCE OF TRUTH)

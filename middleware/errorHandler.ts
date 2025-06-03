@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia';
+import type { Context } from 'elysia';
 
 export interface ApiError extends Error {
   statusCode?: number;
@@ -43,6 +44,98 @@ export class ServerError extends Error implements ApiError {
     super(message);
     this.name = 'ServerError';
   }
+}
+
+interface ValidationErrorDetails {
+  message?: string;
+  validator?: {
+    Errors: (value: unknown) => { First(): { message: string } };
+  };
+  all?: Array<{
+    path?: string;
+    message?: string;
+    summary?: string;
+  }>;
+}
+
+interface ErrorHandlerContext {
+  code: string;
+  error: ValidationErrorDetails;
+  set: {
+    status: number;
+  };
+}
+
+/**
+ * Create a cleaner validation error response
+ */
+function formatValidationError(error: ValidationErrorDetails): { error: string; details?: Record<string, string[]> } {
+  // Check if it's a validation error with the validator property
+  if (error.validator && error.all) {
+    const errors = error.all;
+
+    // If there's only one error, show a simple message
+    if (errors.length === 1) {
+      const singleError = errors[0];
+      return {
+        error:
+          `${singleError.path?.replace(/^\//, '')}: ${singleError.message}` || 'Validation failed',
+      };
+    }
+
+    // For multiple errors, group by field
+    const fieldErrors: Record<string, string[]> = {};
+
+    for (const err of errors) {
+      const field = err.path?.replace(/^\//, '') || 'root';
+      if (!fieldErrors[field]) {
+        fieldErrors[field] = [];
+      }
+      fieldErrors[field].push(err.message || '');
+    }
+
+    // Create a clean summary
+    const summary = Object.entries(fieldErrors)
+      .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+      .join('; ');
+
+    return {
+      error: `Validation failed: ${summary}`,
+      details: fieldErrors,
+    };
+  }
+
+  // Fallback for other validation errors
+  return {
+    error: error.message || 'Validation failed',
+  };
+}
+
+/**
+ * Global error handler for Elysia app
+ */
+export function createErrorHandler() {
+  return ({ code, error, set }: ErrorHandlerContext) => {
+    console.error(`Error [${code}]:`, error);
+
+    switch (code) {
+      case 'VALIDATION':
+        set.status = 400;
+        return formatValidationError(error);
+
+      case 'NOT_FOUND':
+        set.status = 404;
+        return { error: 'Resource not found' };
+
+      case 'INTERNAL_SERVER_ERROR':
+        set.status = 500;
+        return { error: 'Internal server error' };
+
+      default:
+        set.status = 500;
+        return { error: error.message || 'Unknown error occurred' };
+    }
+  };
 }
 
 export function errorHandlerPlugin() {

@@ -15,7 +15,7 @@ import { getBlocksRange, getTimeSeriesData } from './chart.js';
 import { API_HOST, API_PORT } from './config/constants.js';
 import { getDbo } from './db.js';
 import { handleTxRequest } from './handlers/transaction.js';
-import { errorHandlerPlugin } from './middleware/errorHandler.js';
+import { createErrorHandler, errorHandlerPlugin } from './middleware/errorHandler.js';
 import { processTransaction } from './process.js';
 import { Timeframe } from './types.js';
 
@@ -115,18 +115,18 @@ const app = new Elysia()
     // Only log 404s and errors, but we can log all requests if you prefer
     console.log(chalk.gray(`${request.method} ${request.url}`));
   })
-  .onError(({ error, request }) => {
-    console.log({ error });
+  .onError(({ code, error, request, set }) => {
+    console.log(chalk.red(`Error [${code}]:`), error);
     const accept = request.headers.get('accept') || '';
     const wantsJSON = accept.includes('application/json');
 
     if (error instanceof NotFoundError) {
       console.log(chalk.yellow(`404: ${request.method} ${request.url}`));
+      const errorResponse = { error: `Not Found: ${request.url}` };
+
       if (wantsJSON) {
-        return new Response(JSON.stringify({ error: `Not Found: ${request.url}` }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        set.status = 404;
+        return errorResponse;
       }
       return new Response(`<div class="text-yellow-500">Not Found: ${request.url}</div>`, {
         status: 404,
@@ -134,30 +134,69 @@ const app = new Elysia()
       });
     }
 
-    if ('code' in error && error.code === 'VALIDATION') {
-      console.log('Validation error details:', error);
-      console.log('Request URL:', request.url);
-      console.log('Request method:', request.method);
-      const errorMessage = error instanceof Error ? error.message : 'Validation Error';
-      if (wantsJSON) {
-        return new Response(JSON.stringify({ error: errorMessage }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        });
+    if (code === 'VALIDATION') {
+      console.log('Validation error details:', request.url, request.method);
+
+      // Use the cleaner validation error formatting
+      let cleanError: { error: string; details?: Record<string, string[]> } = {
+        error: 'Validation failed',
+      };
+
+      if (error.validator && error.all) {
+        const errors = error.all;
+
+        if (errors.length === 1) {
+          const singleError = errors[0];
+          if (singleError && 'path' in singleError && 'message' in singleError) {
+            cleanError = {
+              error: `${singleError.path.replace(/^\//, '') || 'field'}: ${singleError.message}`,
+            };
+          }
+        } else {
+          // Group errors by field
+          const fieldErrors: Record<string, string[]> = {};
+
+          for (const err of errors) {
+            if (err && 'path' in err && 'message' in err) {
+              const field = err.path.replace(/^\//, '') || 'root';
+              if (!fieldErrors[field]) {
+                fieldErrors[field] = [];
+              }
+              fieldErrors[field].push(err.message);
+            }
+          }
+
+          const summary = Object.entries(fieldErrors)
+            .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+            .join('; ');
+
+          cleanError = {
+            error: `Validation failed: ${summary}`,
+            details: fieldErrors,
+          };
+        }
       }
-      return new Response(`<div class="text-orange-500">Validation Error: ${errorMessage}</div>`, {
-        status: 400,
-        headers: { 'Content-Type': 'text/html' },
-      });
+
+      if (wantsJSON) {
+        set.status = 400;
+        return cleanError;
+      }
+      return new Response(
+        `<div class="text-orange-500">Validation Error: ${cleanError.error}</div>`,
+        {
+          status: 400,
+          headers: { 'Content-Type': 'text/html' },
+        }
+      );
     }
 
-    if ('code' in error && error.code === 'PARSE') {
+    if (code === 'PARSE') {
       const errorMessage = error instanceof Error ? error.message : 'Parse Error';
+      const errorResponse = { error: errorMessage };
+
       if (wantsJSON) {
-        return new Response(JSON.stringify({ error: errorMessage }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        set.status = 400;
+        return errorResponse;
       }
       return new Response(`<div class="text-red-500">Parse Error: ${errorMessage}</div>`, {
         status: 400,
@@ -173,10 +212,8 @@ const app = new Elysia()
       : { error: errorMessage };
 
     if (wantsJSON) {
-      return new Response(JSON.stringify(responsePayload), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      set.status = 500;
+      return responsePayload;
     }
     return new Response(`<div class="text-red-500">Server error: ${errorMessage}</div>`, {
       status: 500,

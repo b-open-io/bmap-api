@@ -4,8 +4,7 @@ import { getBAPIdByAddress, getSigners } from '../bap.js';
 import { PROTOCOL_START_BLOCK } from '../constants.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
-import type { DMResponse } from '../social/schemas.js';
-import type { BapIdentity } from '../types.js';
+import type { BapIdentity, MessageMeta, MessageTransaction, MessagesResponse } from '../types.js';
 
 interface MessageQueryParams {
   bapId: string;
@@ -22,14 +21,68 @@ interface DirectMessagesParams {
 }
 
 /**
- * Fetches direct messages between two BAP IDs with pagination
+ * Calculate message metadata (read receipts, reactions, delivery status)
+ */
+async function calculateMessageMetadata(messages: MessageTransaction[]): Promise<MessageMeta[]> {
+  if (!messages.length) return [];
+
+  const db = await getDbo();
+  const txHashes = messages.map((msg) => msg.tx.h);
+
+  // Get reactions for these messages
+  const reactions = await db
+    .collection('like')
+    .find({
+      'MAP.type': 'like',
+      'MAP.tx': { $in: txHashes },
+    })
+    .toArray();
+
+  // Group reactions by transaction
+  const reactionsByTx = new Map<string, Array<{ emoji: string; count: number }>>();
+
+  for (const reaction of reactions) {
+    const txHash = reaction.MAP.find((m: { tx?: string }) => m.tx)?.tx;
+    const emoji = reaction.MAP.find((m: { emoji?: string }) => m.emoji)?.emoji || '👍';
+
+    if (txHash) {
+      if (!reactionsByTx.has(txHash)) {
+        reactionsByTx.set(txHash, []);
+      }
+
+      const txReactions = reactionsByTx.get(txHash);
+      if (txReactions) {
+        const existing = txReactions.find((r) => r.emoji === emoji);
+        if (existing) {
+          existing.count++;
+        } else {
+          txReactions.push({ emoji, count: 1 });
+        }
+      }
+    }
+  }
+
+  // TODO: Implement read receipts and delivery status when we have that data
+  // For now, return basic metadata structure
+  return messages.map((msg) => ({
+    tx: msg.tx.h,
+    readBy: [], // TODO: Implement read receipts
+    reactions: reactionsByTx.get(msg.tx.h) || [],
+    delivered: true, // TODO: Implement delivery tracking
+    edited: false, // TODO: Implement edit tracking
+    editedAt: undefined,
+  }));
+}
+
+/**
+ * Fetches direct messages between two BAP IDs with pagination and metadata
  */
 export async function getDirectMessages({
   bapId,
   targetBapId = null,
   page = 1,
   limit = 100,
-}: DirectMessagesParams): Promise<DMResponse> {
+}: DirectMessagesParams): Promise<MessagesResponse> {
   const dbo = await getDbo();
   const skip = (page - 1) * limit;
 
@@ -57,14 +110,17 @@ export async function getDirectMessages({
     ? {
         $and: [
           { 'MAP.type': 'message', ...blockHeightCondition },
-
           {
-            'MAP.bapID': targetBapId,
-            'AIP.address': identity.currentAddress,
-          },
-          {
-            'MAP.bapID': bapId,
-            'AIP.address': targetIdentity.currentAddress,
+            $or: [
+              {
+                'MAP.bapID': targetBapId,
+                'AIP.address': identity.currentAddress,
+              },
+              {
+                'MAP.bapID': bapId,
+                'AIP.address': targetIdentity?.currentAddress,
+              },
+            ],
           },
         ],
       }
@@ -74,10 +130,23 @@ export async function getDirectMessages({
         'MAP.bapID': bapId,
       };
 
-  const [results, _count] = await Promise.all([
+  const [results, count] = await Promise.all([
     dbo.collection('message').find(query).sort({ 'blk.t': -1 }).skip(skip).limit(limit).toArray(),
     dbo.collection('message').countDocuments(query),
   ]);
+
+  // Convert to MessageTransaction format
+  const messageTransactions: MessageTransaction[] = results.map((msg) => ({
+    _id: msg._id.toString(),
+    tx: { h: msg.tx?.h || '' },
+    blk: msg.blk || { i: 0, t: 0 },
+    timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
+    AIP: msg.AIP || [],
+    MAP: msg.MAP || [],
+    B: msg.B || [],
+    in: msg.in || [],
+    out: msg.out || [],
+  }));
 
   // Get unique signer addresses
   const signerAddresses = new Set<string>();
@@ -93,16 +162,17 @@ export async function getDirectMessages({
   // Get BAP identities for all signers
   const signers = await getSigners([...signerAddresses]);
 
+  // Calculate metadata for messages
+  const meta = await calculateMessageMetadata(messageTransactions);
+
   return {
-    messages: results.map((msg) => ({
-      bapId,
-      decrypted: false,
-      tx: { h: msg.tx?.h || '' },
-      timestamp: msg.timestamp || msg.blk?.t || Math.floor(Date.now() / 1000),
-      blk: msg.blk || { i: 0, t: 0 },
-      _id: msg._id.toString(),
-    })),
+    bapID: bapId,
+    page,
+    limit,
+    count,
+    results: messageTransactions,
     signers,
+    meta,
   };
 }
 
