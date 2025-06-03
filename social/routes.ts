@@ -9,33 +9,47 @@ import { CACHE_TTL, DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from '../config/constants.
 import { getDbo } from '../db.js';
 import { NotFoundError, ServerError, ValidationError } from '../middleware/errorHandler.js';
 import { getDirectMessages, watchAllMessages, watchDirectMessages } from '../queries/messages.js';
+// Import core shared schemas (SINGLE SOURCE OF TRUTH)
+import {
+  AddressParams,
+  AutofillQuery,
+  AutofillResponse,
+  BapIdParams,
+  ChannelMessageSchema,
+  ChannelParams,
+  ChannelResponseSchema,
+  DMResponseSchema,
+  ErrorResponse,
+  FeedParams,
+  FriendResponseSchema,
+  IdentityResponseSchema,
+  LikeRequestSchema,
+  LikeResponseSchema,
+  MessageListenParams,
+  PaginationQuery,
+  PostQuery,
+  PostResponseSchema,
+  PostsResponseSchema,
+  SearchQuery,
+  SuccessResponse,
+  TargetBapIdParams,
+  TxIdParams,
+} from '../schemas/core.js';
 import { getChannels } from './queries/channels.js';
 import { fetchAllFriendsAndUnfriends, processRelationships } from './queries/friends.js';
 import { fetchBapIdentityData } from './queries/identity.js';
 import { getLikes, processLikes } from './queries/likes.js';
 import { getChannelMessages, updateSignerCache } from './queries/messages.js';
-// Import consolidated schemas and types
-import {
-  type ChannelMessage,
-  type ChannelMessageResponse,
-  ChannelMessageSchema,
-  ChannelParams,
-  ChannelResponseSchema,
-  DMResponseSchema,
-  FriendResponseSchema,
-  IdentityResponseSchema,
-  type LikeInfo,
-  type LikeRequest,
-  LikeRequestSchema,
-  LikeResponseSchema,
-  type LikesQueryRequest,
-  type BaseMessage as Message,
-  MessageListenParams,
-  PaginationQuery,
-  type Post,
-  PostQuery,
-  PostResponseSchema,
-  PostsResponseSchema,
+
+// Import types for internal use
+import type {
+  ChannelMessage,
+  ChannelMessageResponse,
+  LikeInfo,
+  LikeRequest,
+  LikesQueryRequest,
+  BaseMessage as Message,
+  Post,
 } from './schemas.js';
 
 import { getPost, getPosts, getReplies, searchPosts } from '../queries/posts.js';
@@ -175,40 +189,52 @@ export const socialRoutes = new Elysia()
       detail: channelMessagesEndpointDetail,
     }
   )
-  .get('/autofill', async ({ query }) => {
-    try {
-      const { q } = query;
-      if (!q) {
-        throw new Error('q param is required');
-      }
+  .get(
+    '/autofill',
+    async ({ query }) => {
+      try {
+        const { q } = query;
+        if (!q) {
+          throw new Error('q param is required');
+        }
 
-      const cached = await client.hGet('autofill', q);
-      if (cached) {
+        const cached = await client.hGet('autofill', q);
+        if (cached) {
+          return {
+            status: 'OK',
+            result: JSON.parse(cached),
+          };
+        }
+        const [identites, posts] = await Promise.all([
+          searchIdentities({ q, limit: 3, offset: 0 }),
+          searchPosts({ q, limit: 10, offset: 0 }),
+        ]);
+
+        const result = {
+          identities: identites,
+          posts: posts,
+        };
+        client.hSet('autofill', q, JSON.stringify(result));
+        client.hExpire('autofill', q, CACHE_TTL.AUTOFILL);
         return {
           status: 'OK',
-          result: JSON.parse(cached),
+          result: result,
         };
+      } catch (error: unknown) {
+        console.error('Error fetching autofill data:', error);
+        throw new Error('Failed to fetch autofill data');
       }
-      const [identites, posts] = await Promise.all([
-        searchIdentities({ q, limit: 3, offset: 0 }),
-        searchPosts({ q, limit: 10, offset: 0 }),
-      ]);
-
-      const result = {
-        identities: identites,
-        posts: posts,
-      };
-      client.hSet('autofill', q, JSON.stringify(result));
-      client.hExpire('autofill', q, CACHE_TTL.AUTOFILL);
-      return {
-        status: 'OK',
-        result: result,
-      };
-    } catch (error: unknown) {
-      console.error('Error fetching autofill data:', error);
-      throw new Error('Failed to fetch autofill data');
+    },
+    {
+      query: AutofillQuery,
+      response: AutofillResponse,
+      detail: {
+        tags: ['search'],
+        summary: 'Autofill search',
+        description: 'Get mixed search results for autofill suggestions',
+      },
     }
-  })
+  )
   .get(
     '/identity/search',
     async ({ query }) => {
@@ -234,11 +260,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        q: t.String({ description: 'Search query' }),
-        limit: t.Optional(t.String({ description: 'Number of results to return' })),
-        offset: t.Optional(t.String({ description: 'Offset for pagination' })),
-      }),
+      query: SearchQuery,
       response: t.Object({
         status: t.String(),
         result: IdentityResponseSchema,
@@ -275,11 +297,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
-      query: t.Object({
-        q: t.String({ description: 'Search query' }),
-        limit: t.Optional(t.String({ description: 'Number of results to return' })),
-        offset: t.Optional(t.String({ description: 'Offset for pagination' })),
-      }),
+      query: SearchQuery,
       response: PostsResponseSchema,
       detail: {
         tags: ['posts'],
@@ -309,7 +327,14 @@ export const socialRoutes = new Elysia()
       }
     },
     {
+      params: FeedParams,
       query: PostQuery,
+      response: PostsResponseSchema,
+      detail: {
+        tags: ['posts'],
+        summary: 'Get user feed',
+        description: 'Retrieves posts for a specific user or global feed',
+      },
     }
   )
   .get(
@@ -327,6 +352,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
+      params: TxIdParams,
       query: PostQuery,
       response: PostResponseSchema,
       detail: {
@@ -356,6 +382,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
+      params: TxIdParams,
       query: PostQuery,
       response: PostsResponseSchema,
       detail: {
@@ -385,7 +412,14 @@ export const socialRoutes = new Elysia()
       }
     },
     {
+      params: TxIdParams,
       query: PostQuery,
+      response: LikeResponseSchema,
+      detail: {
+        tags: ['likes'],
+        summary: 'Get likes for a post',
+        description: 'Retrieves all likes for a specific post by transaction ID',
+      },
     }
   )
   .get(
@@ -408,6 +442,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
+      params: AddressParams,
       query: PostQuery,
       response: PostsResponseSchema,
       detail: {
@@ -433,8 +468,14 @@ export const socialRoutes = new Elysia()
       }
     },
     {
+      params: BapIdParams,
       query: PostQuery,
       response: PostsResponseSchema,
+      detail: {
+        tags: ['posts'],
+        summary: 'Get posts by BAP ID',
+        description: 'Retrieves all posts from a specific BAP identity',
+      },
     }
   )
   .get(
@@ -457,10 +498,11 @@ export const socialRoutes = new Elysia()
       }
     },
     {
+      params: BapIdParams,
       query: PostQuery,
-      response: PostsResponseSchema,
+      response: LikeResponseSchema,
       detail: {
-        tags: ['social'],
+        tags: ['likes'],
         summary: 'Get likes by BAP ID',
         description: 'Retrieves all likes made by a specific BAP identity',
       },
@@ -582,9 +624,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
-      params: t.Object({
-        bapId: t.String(),
-      }),
+      params: BapIdParams,
       response: FriendResponseSchema,
       detail: friendEndpointDetail,
     }
@@ -615,7 +655,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
-      params: t.Object({ bapId: t.String() }),
+      params: BapIdParams,
       query: PaginationQuery,
       response: DMResponseSchema,
       detail: directMessagesEndpointDetail,
@@ -648,7 +688,7 @@ export const socialRoutes = new Elysia()
       }
     },
     {
-      params: t.Object({ bapId: t.String(), targetBapId: t.String() }),
+      params: TargetBapIdParams,
       query: PaginationQuery,
       response: DMResponseSchema,
       detail: directMessagesWithTargetEndpointDetail,

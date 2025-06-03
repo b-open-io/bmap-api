@@ -14,3 +14,5 @@ playground.mongodb.js
 logs/
 *.log
 *.log.*
+
+internal/

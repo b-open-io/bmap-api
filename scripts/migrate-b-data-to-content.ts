@@ -32,11 +32,12 @@ async function migrateBDataToContent() {
 
       for (const doc of documentsWithData) {
         if (doc.B && Array.isArray(doc.B)) {
-          const updatedB = doc.B.map((b: any) => {
-            if (b.Data) {
+          const updatedB = doc.B.map((b: Record<string, unknown>) => {
+            if (b.Data && typeof b.Data === 'object' && b.Data !== null) {
+              const data = b.Data as Record<string, unknown>;
               // Convert Data structure to content
-              const content = b.Data.utf8 || b.Data.base64 || '';
-              const encoding = b.Data.utf8 ? 'utf-8' : b.Data.base64 ? 'base64' : '';
+              const content = (data.utf8 as string) || (data.base64 as string) || '';
+              const encoding = data.utf8 ? 'utf-8' : data.base64 ? 'base64' : '';
 
               return {
                 encoding: b.encoding || encoding,

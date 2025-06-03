@@ -1,5 +1,6 @@
 import type { BmapTx } from 'bmapjs';
 import _ from 'lodash';
+import { ObjectId } from 'mongodb';
 import { type CacheValue, readFromRedis, saveToRedis } from './cache.js';
 import { EXTERNAL_APIS } from './config/constants.js';
 import { getBAPDbo } from './db.js';
@@ -97,7 +98,10 @@ export const getBAPAddresses = async (idKeys: string[]) => {
   const db = await getBAPDbo();
   const identities = await db
     .collection('identities')
-    .find({ _id: { $in: idKeys } } as any, { projection: { addresses: { address: 1 } } })
+    .find(
+      { _id: { $in: idKeys.map((id) => new ObjectId(id)) } },
+      { projection: { addresses: { address: 1 } } }
+    )
     .toArray();
 
   const addresses = new Set<string>();
@@ -115,7 +119,7 @@ export const getBAPIdentites = async (idKeys: string[]) => {
   const db = await getBAPDbo();
   const identities = await db
     .collection('identities')
-    .find({ _id: { $in: idKeys } } as any)
+    .find({ _id: { $in: idKeys.map((id) => new ObjectId(id)) } })
     .toArray();
 
   return identities.map((s) => ({

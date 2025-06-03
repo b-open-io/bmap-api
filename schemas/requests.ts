@@ -1,16 +1,6 @@
 import { type Static, t } from 'elysia';
 
-// Define request types
-export const QueryParams = t.Object({
-  collectionName: t.String(),
-  base64Query: t.String(),
-});
-
-export const ChartParams = t.Object({
-  name: t.Optional(t.String()),
-  timeframe: t.Optional(t.String()),
-});
-
+// Transaction-specific request schemas (not duplicated elsewhere)
 export const IngestBody = t.Object({
   rawTx: t.String({
     description: 'Raw transaction hex string',

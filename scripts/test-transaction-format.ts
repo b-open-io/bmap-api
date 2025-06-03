@@ -1,4 +1,4 @@
-import bmapjs from 'bmapjs';
+import bmapjs, { type BobTx } from 'bmapjs';
 import { parse } from 'bpu-ts';
 import chalk from 'chalk';
 
@@ -31,7 +31,7 @@ async function testTransactionFormat() {
 
     console.log('\nTransforming with bmapjs...');
     const tx = await TransformTx(
-      bob as any,
+      bob as BobTx,
       allProtocols.map((p) => p.name)
     );
 
@@ -40,7 +40,7 @@ async function testTransactionFormat() {
       console.log(JSON.stringify(tx.B, null, 2));
 
       // Check the structure
-      tx.B.forEach((b: any, index: number) => {
+      tx.B.forEach((b: Record<string, unknown>, index: number) => {
         console.log(`\nB[${index}] keys:`, Object.keys(b || {}));
         if (b.Data) {
           console.log(chalk.red('  Has Data field:', b.Data));

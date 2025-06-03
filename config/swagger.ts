@@ -6,14 +6,14 @@ export const swaggerConfig = {
       description: 'Bitcoin transaction processing and social features API',
     },
     tags: [
-      { name: 'explorer', description: 'Visual query builder and data exploration tools' },
       { name: 'transactions', description: 'Transaction processing and retrieval' },
       { name: 'social', description: 'Social features like friends, likes, and channels' },
       { name: 'charts', description: 'Chart data generation endpoints' },
       { name: 'identities', description: 'BAP identity management' },
-      { name: 'htmx', description: 'HTMX-powered dynamic UI updates' },
       { name: 'posts', description: 'Post management endpoints' },
       { name: 'query', description: 'MongoDB query endpoints' },
+      { name: 'analytics', description: 'Network analytics and trending data' },
+      { name: 'health', description: 'System health monitoring and status' },
     ],
     security: [{ apiKey: [] }],
     // Temporarily commented out due to type compatibility issues
@@ -71,6 +71,4 @@ export const swaggerConfig = {
     // },
   },
   path: '/docs',
-  exclude: ['/', '/app/public/*'],
-  excludeStaticFile: true,
 };

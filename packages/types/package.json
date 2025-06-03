@@ -1,0 +1,27 @@
+{
+  "name": "@bmap/types",
+  "version": "1.0.0",
+  "description": "TypeScript type definitions for BMAP API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist/**/*"],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": ["bmap", "bitcoin", "bsv", "types", "typescript"],
+  "author": "BMAP API Team",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "@sinclair/typebox": "^0.32.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/bmap-api.git",
+    "directory": "packages/types"
+  }
+}

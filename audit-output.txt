@@ -1,0 +1,134 @@
+🔍 Starting comprehensive route audit...
+📁 Auditing social/routes.ts...
+📁 Auditing analytics/routes.ts...
+📁 Auditing routes/transaction.ts...
+📁 Auditing routes/query.ts...
+📁 Auditing routes/chart.ts...
+🔍 Checking schema consistency...
+📖 Checking README consistency...
+
+📊 AUDIT COMPLETE!
+
+# BMAP API Route Audit Report
+
+## Summary
+- **Total Routes**: 35
+- **Routes with Schemas**: 0
+- **Routes with Documentation**: 0
+- **Total Schemas**: 0
+- **Total Tags**: 0
+- **Issues Found**: 63
+
+## Issues Found
+
+- ⚠️ Schema defined but not used: FriendResponse
+- ⚠️ Schema defined but not used: FriendResponseSchema
+- ⚠️ Schema defined but not used: ChannelMessageResponseSchema
+- ⚠️ Schema defined but not used: ChannelMessageSchema
+- ⚠️ Schema defined but not used: MessageListenParams
+- ⚠️ Schema defined but not used: DMResponseSchema
+- ⚠️ Schema defined but not used: ChannelParams
+- ⚠️ Schema defined but not used: ChannelResponseSchema
+- ⚠️ Schema defined but not used: LikeRequestSchema
+- ⚠️ Schema defined but not used: LikesQueryRequestSchema
+- ⚠️ Schema defined but not used: LikeResponseSchema
+- ⚠️ Schema defined but not used: IdentityResponseSchema
+- ⚠️ Schema defined but not used: MetaSchema
+- ⚠️ Schema defined but not used: PostResponseSchema
+- ⚠️ Schema defined but not used: PostsResponseSchema
+- ⚠️ Schema defined but not used: NetworkOverviewParams
+- ⚠️ Schema defined but not used: TrendingChannelsParams
+- ⚠️ Schema defined but not used: NetworkActivityParams
+- ⚠️ Schema defined but not used: NetworkGrowthParams
+- ⚠️ Schema defined but not used: AdminStatsParams
+- ⚠️ Schema defined but not used: TrendingUsersParams
+- ⚠️ Schema defined but not used: UserMetricsParams
+- ⚠️ Schema defined but not used: ContentAnalyticsParams
+- ⚠️ Schema defined but not used: TrendingContentParams
+- ⚠️ Schema defined but not used: NetworkOverviewResponse
+- ⚠️ Schema defined but not used: TrendingChannelsResponse
+- ⚠️ Schema defined but not used: NetworkHealthResponse
+- ⚠️ Schema defined but not used: NetworkActivityResponse
+- ⚠️ Schema defined but not used: NetworkGrowthResponse
+- ⚠️ Schema defined but not used: AdminStatsResponse
+- ⚠️ Schema defined but not used: TrendingUsersResponse
+- ⚠️ Schema defined but not used: UserMetricsResponse
+- ⚠️ Schema defined but not used: ContentAnalyticsResponse
+- ⚠️ Schema defined but not used: TrendingContentResponse
+- ⚠️ Schema defined but not used: StreamSubscriptionParams
+- ⚠️ Schema defined but not used: ExportParams
+- ⚠️ Route not documented in README: GET /social/autofill
+- ⚠️ Route not documented in README: GET /social/identity/search
+- ⚠️ Route not documented in README: GET /social/post/search
+- ⚠️ Route not documented in README: GET /social/feed/:bapId?
+- ⚠️ Route not documented in README: GET /social/post/:txid/like
+- ⚠️ Route not documented in README: POST /social/likes
+- ⚠️ Route not documented in README: GET /analytics/network/overview
+- ⚠️ Route not documented in README: GET /analytics/trending/channels
+- ⚠️ Route not documented in README: GET /analytics/network/activity
+- ⚠️ Route not documented in README: GET /analytics/network/growth
+- ⚠️ Route not documented in README: GET /analytics/admin/stats
+- ⚠️ Route not documented in README: GET /analytics/trending/users
+- ⚠️ Route not documented in README: GET /analytics/user/:userId/metrics
+- ⚠️ Route not documented in README: GET /analytics/content/analytics
+- ⚠️ Route not documented in README: GET /analytics/content/trending
+- ⚠️ Route not documented in README: GET /analytics/export
+- ⚠️ Route not documented in README: POST /analytics/alerts/check
+- ⚠️ Route not documented in README: GET /analytics/stream/:stream
+- ⚠️ Route not documented in README: GET /analytics/network/status
+- ⚠️ Route not documented in README: GET /tx/:tx/:format?
+- ⚠️ Route not documented in README: GET /s/:collectionName?/:base64Query
+- ⚠️ README documents non-existent route: GET /tx/:txid
+- ⚠️ README documents non-existent route: GET /s/:collectionName/:base64Query
+- ⚠️ README documents non-existent route: GET /social/autofill?q=
+- ⚠️ README documents non-existent route: GET /social/identity/search?q=
+- ⚠️ README documents non-existent route: POST /social/post/:txid/like
+- ⚠️ README documents non-existent route: GET /social/post/search?q=
+
+## Route Inventory
+
+| Method | Path | File | Schemas | Tags | Documented |
+|--------|------|------|---------|------|------------|
+| GET | /analytics/admin/stats | analytics/routes.ts | - | - | ❌ |
+| POST | /analytics/alerts/check | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/content/analytics | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/content/trending | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/export | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/network/activity | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/network/growth | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/network/overview | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/network/status | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/stream/:stream | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/trending/channels | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/trending/users | analytics/routes.ts | - | - | ❌ |
+| GET | /analytics/user/:userId/metrics | analytics/routes.ts | - | - | ❌ |
+| GET | /chart-data/:name? | routes/chart.ts | - | - | ❌ |
+| POST | /ingest | routes/transaction.ts | - | - | ❌ |
+| GET | /q/:collectionName/:base64Query | routes/query.ts | - | - | ❌ |
+| GET | /s/:collectionName?/:base64Query | routes/query.ts | - | - | ❌ |
+| GET | /social/@/:bapId/messages | social/routes.ts | - | - | ❌ |
+| GET | /social/@/:bapId/messages/:targetBapId | social/routes.ts | - | - | ❌ |
+| GET | /social/autofill | social/routes.ts | - | - | ❌ |
+| GET | /social/bap/:bapId/like | social/routes.ts | - | - | ❌ |
+| GET | /social/channels | social/routes.ts | - | - | ❌ |
+| GET | /social/channels/:channelId/messages | social/routes.ts | - | - | ❌ |
+| GET | /social/feed/:bapId? | social/routes.ts | - | - | ❌ |
+| GET | /social/friend/:bapId | social/routes.ts | - | - | ❌ |
+| GET | /social/identities | social/routes.ts | - | - | ❌ |
+| GET | /social/identity/search | social/routes.ts | - | - | ❌ |
+| POST | /social/likes | social/routes.ts | - | - | ❌ |
+| GET | /social/post/:txid | social/routes.ts | - | - | ❌ |
+| GET | /social/post/:txid/like | social/routes.ts | - | - | ❌ |
+| GET | /social/post/:txid/reply | social/routes.ts | - | - | ❌ |
+| GET | /social/post/address/:address | social/routes.ts | - | - | ❌ |
+| GET | /social/post/bap/:bapId | social/routes.ts | - | - | ❌ |
+| GET | /social/post/search | social/routes.ts | - | - | ❌ |
+| GET | /tx/:tx/:format? | routes/transaction.ts | - | - | ❌ |
+
+## Schema Usage
+
+
+## Tags Used
+
+
+📝 Report saved to ROUTE_AUDIT_REPORT.md

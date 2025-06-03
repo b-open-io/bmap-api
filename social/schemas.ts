@@ -56,8 +56,6 @@ export interface FriendData {
   outgoing: Friend[];
 }
 
-export type FriendResponse = FriendData;
-
 // Message types
 export interface BaseMessage {
   tx: {
@@ -251,6 +249,30 @@ export const PaginationQuery = t.Object({
   limit: t.Optional(t.String()),
 });
 
+export const SearchQuery = t.Object({
+  q: t.String({ description: 'Search query' }),
+  limit: t.Optional(t.String({ description: 'Number of results to return' })),
+  offset: t.Optional(t.String({ description: 'Offset for pagination' })),
+});
+
+// Path parameter schemas
+export const BapIdParams = t.Object({
+  bapId: t.String({ description: 'BAP identity key' }),
+});
+
+export const TxIdParams = t.Object({
+  txid: t.String({ description: 'Transaction ID' }),
+});
+
+export const AddressParams = t.Object({
+  address: t.String({ description: 'Bitcoin address' }),
+});
+
+export const TargetBapIdParams = t.Object({
+  bapId: t.String({ description: 'Source BAP identity key' }),
+  targetBapId: t.String({ description: 'Target BAP identity key' }),
+});
+
 // Friend schemas
 export const FriendResponseSchema = t.Object({
   friends: t.Array(
@@ -274,6 +296,19 @@ export const FriendResponseSchema = t.Object({
       icon: t.Optional(t.String()),
     })
   ),
+});
+
+// Autofill schemas
+export const AutofillQuery = t.Object({
+  q: t.String({ description: 'Search query for autofill' }),
+});
+
+export const AutofillResponse = t.Object({
+  status: t.String(),
+  result: t.Object({
+    identities: t.Array(t.Unknown()),
+    posts: t.Array(t.Unknown()),
+  }),
 });
 
 // Message schemas
@@ -516,6 +551,10 @@ export const PostQuery = t.Object({
   channel: t.Optional(t.String()),
 });
 
+export const FeedParams = t.Object({
+  bapId: t.Optional(t.String({ description: 'BAP identity key for feed' })),
+});
+
 // Meta information for posts (likes, replies, reactions)
 export const MetaSchema = t.Object({
   tx: t.String(),
@@ -599,4 +638,16 @@ export const PostsResponseSchema = t.Object({
   ),
   signers: t.Array(t.Unknown()), // BapIdentity array
   meta: t.Array(MetaSchema),
+});
+
+// Error response schema
+export const ErrorResponse = t.Object({
+  code: t.String(),
+  message: t.String(),
+});
+
+// Success response schema
+export const SuccessResponse = t.Object({
+  status: t.String(),
+  result: t.Unknown(),
 });

@@ -81,23 +81,29 @@ export const processTransaction = async (
 
     // Transform B.Data to B.content for consistency
     if (t.B && Array.isArray(t.B)) {
-      t.B = t.B.map((b: any) => {
-        if (b.Data) {
+      t.B = t.B.map((b: Record<string, unknown>) => {
+        if (b.Data && typeof b.Data === 'object' && b.Data !== null) {
+          const data = b.Data as Record<string, unknown>;
           // Convert Data structure to content
-          const content = b.Data.utf8 || b.Data.base64 || b.content || '';
-          const encoding = b.Data.utf8 ? 'utf-8' : b.Data.base64 ? 'base64' : b.encoding || '';
+          const content =
+            (data.utf8 as string) || (data.base64 as string) || (b.content as string) || '';
+          const encoding = data.utf8
+            ? 'utf-8'
+            : data.base64
+              ? 'base64'
+              : (b.encoding as string) || '';
 
           return {
             encoding: encoding,
             content: content,
-            'content-type': b['content-type'] || 'text/plain',
+            'content-type': (b['content-type'] as string) || 'text/plain',
           };
         }
         // Already in correct format
         return {
-          encoding: b.encoding || '',
-          content: b.content || '',
-          'content-type': b['content-type'] || 'text/plain',
+          encoding: (b.encoding as string) || '',
+          content: (b.content as string) || '',
+          'content-type': (b['content-type'] as string) || 'text/plain',
         };
       });
     }
