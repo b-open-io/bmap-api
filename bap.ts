@@ -17,6 +17,13 @@ export interface BapIdentityObject {
   [key: string]: unknown;
 }
 
+// Database structure for addresses (as stored in MongoDB)
+interface DatabaseAddress {
+  address?: string;
+  txid?: string; // Note: database uses lowercase 'txid'
+  block?: number;
+}
+
 const bapApiUrl = EXTERNAL_APIS.BAP;
 
 type Payload = {
@@ -65,10 +72,14 @@ export const getSigners = async (addresses: string[]) => {
     idKey: s._id.toString(),
     rootAddress: s.rootAddress,
     currentAddress: s.currentAddress,
-    addresses: s.addresses,
+    addresses: (s.addresses || []).map((addr: DatabaseAddress) => ({
+      address: addr.address || '',
+      txId: addr.txid || '', // Use correct field name from database
+      block: addr.block,
+    })),
     block: s.block || 0,
     timestamp: s.timestamp || 0,
-    valid: s.valid,
+    valid: s.valid === true, // Only true if explicitly validated
     identityTxId: s.identityTxId || '',
     identity:
       s.profile && typeof s.profile === 'object'
@@ -110,10 +121,14 @@ export const getBAPIdentites = async (idKeys: string[]) => {
     idKey: s._id.toString(),
     rootAddress: s.rootAddress,
     currentAddress: s.currentAddress,
-    addresses: s.addresses,
+    addresses: (s.addresses || []).map((addr: DatabaseAddress) => ({
+      address: addr.address || '',
+      txId: addr.txid || '', // Use correct field name from database
+      block: addr.block,
+    })),
     block: s.block || 0,
     timestamp: s.timestamp || 0,
-    valid: s.valid,
+    valid: s.valid === true, // Only true if explicitly validated
     identityTxId: s.identityTxId || '',
     identity:
       s.profile && typeof s.profile === 'object'
@@ -184,10 +199,14 @@ export async function searchIdentities({
     idKey: s._id.toString(),
     rootAddress: s.rootAddress,
     currentAddress: s.currentAddress,
-    addresses: s.addresses,
+    addresses: (s.addresses || []).map((addr: DatabaseAddress) => ({
+      address: addr.address || '',
+      txId: addr.txid || '', // Use correct field name from database
+      block: addr.block,
+    })),
     block: s.block || 0,
     timestamp: s.timestamp || 0,
-    valid: s.valid,
+    valid: s.valid === true, // Only true if explicitly validated
     identityTxId: s.identityTxId || '',
     identity:
       s.profile && typeof s.profile === 'object'
