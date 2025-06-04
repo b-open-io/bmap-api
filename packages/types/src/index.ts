@@ -1,8 +1,9 @@
 // Re-export all types from the core types file
-export * from './core';
+export * from './core.js';
 
-// Export version info
-export const VERSION = '0.0.7';
+// Export version info (read from package.json - single source of truth)
+import packageJson from '../package.json' with { type: 'json' };
+export const VERSION = packageJson.version;
 export const API_VERSION = 'v1';
 
 // Export commonly used utility types

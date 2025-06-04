@@ -2,12 +2,14 @@
   "name": "bmap-api-types",
   "version": "0.0.9",
   "description": "TypeScript type definitions for BMAP API",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist/**/*"],
+  "files": ["dist/**/*", "package.json"],
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "bun run build && node dist/version.test.js"
   },
   "keywords": ["bmap", "bitcoin", "bsv", "types", "typescript"],
   "author": "BMAP API Team",
