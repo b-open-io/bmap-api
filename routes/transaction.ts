@@ -1,59 +1,88 @@
-import type { BmapTx } from 'bmapjs';
 import { Elysia, t } from 'elysia';
+import { EXTERNAL_APIS } from '../config/constants.js';
 import { handleTxRequest } from '../handlers/transaction.js';
-import { processTransaction } from '../process.js';
 import { BmapTxSchema, SignerSchema } from '../schemas/core.js';
 import { IngestBody, type IngestRequest } from '../schemas/requests.js';
+
+// External API response type
+const ExternalIngestResponse = t.Object({
+  status: t.String(),
+  message: t.Optional(t.String()),
+  data: t.Optional(t.Any()),
+});
 
 export const transactionRoutes = new Elysia()
   .post(
     '/ingest',
-    async ({ body }: { body: IngestRequest }) => {
+    async ({ body, set }: { body: IngestRequest; set: { status: number } }) => {
       const { rawTx } = body;
-      console.log('Received ingest request with rawTx length:', rawTx.length);
+      console.log('Received ingest request, forwarding to bsocial overlay API...');
 
       try {
-        const tx = (await processTransaction(rawTx)) as BmapTx | null;
-        if (!tx) throw new Error('No result returned');
+        // Forward to external bsocial overlay API
+        const response = await fetch(`${EXTERNAL_APIS.BAP}ingest`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ rawTx }),
+        });
 
-        console.log('Transaction processed successfully:', tx.tx?.h);
-        return tx;
+        const result = await response.json();
+
+        // Pass through the external API's response
+        if (!response.ok) {
+          set.status = response.status;
+          return result;
+        }
+
+        console.log('Transaction successfully processed by bsocial overlay:', result);
+        return result;
       } catch (error) {
-        console.error('Error processing transaction:', error);
-        throw new Error(`Transaction processing failed: ${error}`);
+        console.error('Error forwarding to bsocial overlay API:', error);
+        set.status = 500;
+        return {
+          status: 'ERROR',
+          message: `Failed to forward to bsocial overlay: ${error}`,
+        };
       }
     },
     {
       body: IngestBody,
+      response: {
+        200: ExternalIngestResponse,
+        400: ExternalIngestResponse,
+        422: ExternalIngestResponse,
+        500: ExternalIngestResponse,
+      },
       detail: {
         tags: ['transactions'],
-        description: 'Process and store a raw Bitcoin transaction',
-        summary: 'Ingest transaction',
+        description: 'Forward raw Bitcoin transaction to bsocial overlay API for processing',
+        summary: 'Ingest transaction via bsocial overlay',
         responses: {
           200: {
-            description: 'Transaction processed successfully',
+            description: 'Transaction processed successfully by bsocial overlay',
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
                   properties: {
-                    tx: {
-                      type: 'object',
-                      properties: {
-                        h: { type: 'string', description: 'Transaction hash' },
-                      },
-                    },
-                    blk: {
-                      type: 'object',
-                      properties: {
-                        i: { type: 'number', description: 'Block height' },
-                        t: { type: 'number', description: 'Block timestamp' },
-                      },
-                    },
+                    status: { type: 'string', description: 'Status of the operation' },
+                    message: { type: 'string', description: 'Optional message' },
+                    data: { type: 'object', description: 'Optional response data' },
                   },
                 },
               },
             },
+          },
+          400: {
+            description: 'Bad request from bsocial overlay',
+          },
+          422: {
+            description: 'Invalid transaction data',
+          },
+          500: {
+            description: 'Internal server error',
           },
         },
       },

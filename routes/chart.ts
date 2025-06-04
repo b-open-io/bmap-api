@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { getBlockHeightFromCache } from '../cache.js';
 import { getBlocksRange, getTimeSeriesData } from '../chart.js';
+import { CHART_ROUTES } from '../constants/routes.js';
 import { getDbo } from '../db.js';
 import { Timeframe } from '../types.js';
 
@@ -22,7 +23,7 @@ const ChartResponse = t.Object({
 });
 
 export const chartRoutes = new Elysia().get(
-  '/chart-data/:name?',
+  CHART_ROUTES.CHART_DATA,
   async ({ params, query }) => {
     console.log('Starting chart-data request');
     try {

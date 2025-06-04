@@ -87,12 +87,12 @@ export const QUERY_ROUTES = {
 // Transaction routes
 export const TRANSACTION_ROUTES = {
   TRANSACTION_BY_ID: '/tx/:tx/:format?',
-  SAVE_TRANSACTION: '/save',
+  INGEST: '/ingest',
 } as const;
 
 // Chart routes
 export const CHART_ROUTES = {
-  CHART_DATA: '/chart/:name?',
+  CHART_DATA: '/chart-data/:name?',
 } as const;
 
 // Combined route object for easy access
