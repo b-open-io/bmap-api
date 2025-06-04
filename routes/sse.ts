@@ -1,9 +1,14 @@
 import type { BmapTx } from 'bmapjs';
 import chalk from 'chalk';
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import type { ChangeStream, ChangeStreamDocument } from 'mongodb';
 import { getDbo } from '../db.js';
-import { QueryParams } from '../schemas/requests.js';
+
+// Define request types
+const QueryParams = t.Object({
+  collectionName: t.String({ description: 'MongoDB collection name' }),
+  base64Query: t.String({ description: 'Base64-encoded MongoDB query' }),
+});
 
 export const sseRoutes = new Elysia().get(
   '/s/:collectionName?/:base64Query',

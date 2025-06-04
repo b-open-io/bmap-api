@@ -10,11 +10,20 @@
     "resolveJsonModule": true,
     "outDir": "./build",
     "types": ["node"],
-    "skipLibCheck": true,
-    "jsx": "react",
-    "jsxFactory": "React.createElement",
-    "jsxFragmentFactory": "React.Fragment"
+    "skipLibCheck": true
   },
-  "include": ["./*.ts", "./src/**/*.ts", "./src/**/*.tsx", "./social/**/*.ts", "./queries/**/*.ts"],
+  "include": [
+    "./*.ts",
+    "./social/**/*.ts",
+    "./queries/**/*.ts",
+    "./routes/**/*.ts",
+    "./analytics/**/*.ts",
+    "./schemas/**/*.ts",
+    "./scripts/**/*.ts",
+    "./middleware/**/*.ts",
+    "./handlers/**/*.ts",
+    "./utils/**/*.ts",
+    "./tests/**/*.ts"
+  ],
   "exclude": ["node_modules", "**/node_modules/*", "dist", "build", "**/dist/**"]
 }

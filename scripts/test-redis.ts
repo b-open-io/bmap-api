@@ -1,5 +1,5 @@
-import type { BapIdentity } from '../bap.js';
 import { client, saveToRedis } from '../cache.js';
+import type { BapIdentity } from '../types.js';
 
 async function testRedisConnection() {
   try {
@@ -34,8 +34,8 @@ async function testRedisConnection() {
             block: 697159,
           },
         ],
-        // Test with a JSON string identity
-        identity: JSON.stringify({
+        // Test with an identity object
+        identity: {
           '@type': 'Person',
           alternateName: 'TestUser1',
           description: 'Test user description',
@@ -43,11 +43,13 @@ async function testRedisConnection() {
           image: '/test-image-hash-1',
           paymail: 'test1@handcash.io',
           url: 'https://1sat.market',
-        }),
+          firstSeen: Math.floor(Date.now() / 1000),
+        },
         identityTxId: 'test1identitytx',
         block: 697159,
         timestamp: Math.floor(Date.now() / 1000),
         valid: true,
+        firstSeen: Math.floor(Date.now() / 1000),
       },
       {
         idKey: 'test2',
@@ -60,12 +62,17 @@ async function testRedisConnection() {
             block: 697160,
           },
         ],
-        // Test with a simple string identity
-        identity: 'TestUser2',
+        // Test with a minimal identity object
+        identity: {
+          '@type': 'Person',
+          alternateName: 'TestUser2',
+          firstSeen: Math.floor(Date.now() / 1000),
+        },
         identityTxId: 'test2identitytx',
         block: 697160,
         timestamp: Math.floor(Date.now() / 1000),
         valid: true,
+        firstSeen: Math.floor(Date.now() / 1000),
       },
       {
         idKey: 'test3',
@@ -84,11 +91,13 @@ async function testRedisConnection() {
           alternateName: 'TestUser3',
           description: 'Test user with object identity',
           homeLocation: { name: 'Bitcoin' },
+          firstSeen: Math.floor(Date.now() / 1000),
         },
         identityTxId: 'test3identitytx',
         block: 697161,
         timestamp: Math.floor(Date.now() / 1000),
         valid: true,
+        firstSeen: Math.floor(Date.now() / 1000),
       },
     ];
 
