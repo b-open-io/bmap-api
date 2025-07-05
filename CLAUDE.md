@@ -294,28 +294,67 @@ interface DatabaseAddress {
 }
 ```
 
-## Database Architecture & Access
+## Data Architecture & Sources
 
-### MongoDB Direct Access
+### Hybrid Data Architecture
 
-**Efficient Database Querying**:
-- Main database: `bsocial` (via `getDbo()`) - transaction data, posts, likes, etc.
-- BAP database: `bap` (via `getBAPDbo()`) - identity data and BAP records
-- Direct mongosh access for debugging: `mongosh bap --eval 'query'`
-- MongoDB playground files for testing complex queries
+This project uses a **hybrid data architecture** with multiple data sources optimized for different operations:
 
-**Key Collections**:
+**Read Operations** (Direct Database Access):
+```
+Client → BMAP API → MongoDB/Redis → Response
+```
+
+**Write Operations** (External API Delegation):
+```
+Client → BMAP API → External bsocial API → Response (proxy)
+```
+
+### Data Sources
+
+**1. MongoDB Direct Access** (Primary Read Data):
+- **Two MongoDB databases**:
+  - `bsocial` (via `getDbo()`) - Transaction data, posts, likes, social features
+  - `bap` (via `getBAPDbo()`) - BAP identity records and address mappings
+- **Direct mongosh access** for debugging: `mongosh bap --eval 'query'`
+- **MongoDB playground files** for testing complex queries
+
+**2. External API Delegation** (Write Operations):
+- **Transaction ingestion** delegated to `https://api.sigmaidentity.com/api/v1/ingest`
+- **BMAP API acts as proxy** - forwards raw transactions to bsocial overlay API
+- **Single source of truth** for transaction processing and indexing
+- **Simplified architecture** - BMAP API is now primarily read-only
+
+**3. Redis Caching Layer**:
+- **High-performance caching** for frequently accessed data
+- **Strategic TTL policies**: 30s-1h based on data volatility
+- **Cached data types**: Transaction data, identities, social graph information
+
+### Key Collections
+
+**bsocial Database**:
+- `bsocial.c` / `bsocial.u` - Confirmed/unconfirmed transactions
 - `bsocial.post` - Post transactions and content
 - `bsocial.like` - Like/reaction data
-- `bsocial.follow`/`bsocial.unfollow` - Social graph
-- `bap.identities` - BAP identity records with addresses, profiles
-- `bsocial.c`/`bsocial.u` - Confirmed/unconfirmed transactions
+- `bsocial.follow` / `bsocial.unfollow` - Social graph relationships
+- `bsocial.message` - Direct messages and channel communications
 
-**Database Schema Notes**:
+**bap Database**:
+- `bap.identities` - BAP identity records with addresses, profiles
+
+### Database Schema Notes
+
+**Field Naming Conventions**:
 - Address records use `txid` (lowercase) not `txId` in database
 - Some fields may be missing/optional in database records
 - Always handle undefined/null database fields gracefully
 - Security: `valid` field defaults to false - only true if explicitly validated
+
+**Architectural Benefits**:
+- **Performance**: Direct MongoDB access for fast reads
+- **Simplicity**: External API handles complex transaction processing
+- **Consistency**: Single source of truth for transaction ingestion
+- **Separation of Concerns**: Read API vs. write processing clearly separated
 
 ## Architecture
 
@@ -412,6 +451,28 @@ Full-featured social platform with:
 - Strategic indexing on frequently queried fields
 - Connection pooling and optimization
 
+## Identity System Architecture
+
+### Three Distinct Identity Formats
+
+The API handles three different identity types that must not be confused:
+
+**BAP IDs**:
+- Derived identity strings (e.g., "Go8vCHAa4S6AhXKTABGpANiz35J")
+- 26 characters of base58-encoded data
+- Unique identifier for a BAP identity (NOT a public key or address)
+- Used in social features and message routing
+
+**Bitcoin Addresses**:
+- Legacy format (e.g., "1CfG7EzS1Qj8vGxKzr2ecHhYqZh2ndJT9g")
+- Found in AIP protocol data as `address` or `algorithm_signing_component` fields
+- Used for transaction signing and verification
+
+**Public Keys**:
+- 33 or 65 byte hex strings for encryption/decryption
+- Not directly exposed in API responses
+- Derived from BAP identity when needed
+
 ## Development Workflow
 
 ### Code Generation Scripts
@@ -425,6 +486,9 @@ Full-featured social platform with:
    - Validates all 35 routes have proper schemas
    - Checks documentation completeness  
    - Reports schema usage and inconsistencies
+
+3. **`scripts/test-redis.ts`** - Redis connectivity testing
+4. **`scripts/migrate-b-data-to-content.ts`** - Database migration utilities
 
 ### Quality Assurance
 
@@ -531,14 +595,51 @@ bun run dev
 bun run typecheck
 
 # Linting  
-bun run lint
-bun run lint:fix
+bun run lint                    # Check code quality
+bun run lint:fix               # Auto-fix formatting
+bun run lint:unsafe            # Apply unsafe auto-fixes
 
-# Generate types package
-bun run build:types
+# Type generation and publishing
+bun run build:types           # Generate types package
+bun run publish:types         # Publish to npm
+bun run publish:types:dry     # Dry run publish
 
-# Test Redis connection
-bun run test-redis
+# Testing and utilities
+bun run test-redis           # Test Redis connectivity
+bun run migrate:b-data       # Database migration utilities
+bun run prepare-hooks        # Install git hooks
+```
+
+### Elysia Framework Specifics
+
+**Header Management** (Critical for middleware compatibility):
+```typescript
+// ❌ Wrong - overwrites CORS and other middleware headers
+set.headers = { 'Cache-Control': 'public, max-age=60' };
+
+// ✅ Correct - preserves existing headers
+Object.assign(set.headers, { 'Cache-Control': 'public, max-age=60' });
+```
+
+**Response Validation Requirements**:
+- All schema fields must be present in response
+- Optional fields need `t.Optional()` or explicit `null` values
+- Missing required fields cause 422 validation errors
+- Response validation is as strict as request validation
+
+**Route Parameter Handling**:
+```typescript
+// Use typed route parameters
+context.params.bapId
+
+// Handle query parameters  
+context.query.page
+
+// Process request body
+context.body.rawTx
+
+// Set response status
+set.status = 404
 ```
 
 ## Production Deployment

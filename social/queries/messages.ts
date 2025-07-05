@@ -125,6 +125,9 @@ export async function getChannelMessages(params: {
   const validatedSigners: BapIdentity[] = signers.map((s) => ({
     ...s,
     identityTxId: s.identityTxId || '',
+    block: s.block || 0,
+    timestamp: s.timestamp || 0,
+    valid: s.valid || false,
     identity:
       s.identity && typeof s.identity === 'object'
         ? s.identity
