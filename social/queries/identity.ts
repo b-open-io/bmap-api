@@ -25,7 +25,7 @@ export function sigmaIdentityToBapIdentity(result: SigmaIdentityResult): BapIden
   };
 }
 
-export async function fetchBapIdentityData(bapId: string): Promise<BapIdentity> {
+export async function fetchBapIdentityData(bapId: string): Promise<BapIdentity | null> {
   const cacheKey = `sigmaIdentity-${bapId}`;
   const cached = await readFromRedis<CacheValue>(cacheKey);
   if (cached?.type === 'signer') {
@@ -40,6 +40,7 @@ export async function fetchBapIdentityData(bapId: string): Promise<BapIdentity> 
   });
 
   if (resp.status === 404) {
+    console.warn(`BAP identity not found: ${bapId}`);
     return null;
   }
 
