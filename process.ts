@@ -69,7 +69,7 @@ export const processTransaction = async (
         console.log('Getting BAP ID for address:', aip.address);
         bapId = await getBAPIdByAddress(aip.address);
       }
-      // biome-ignore lint/performance/noDelete: <explanation>
+      // biome-ignore lint/performance/noDelete: need to remove data field from AIP
       delete aip.data;
       tx.AIP[0] = aip;
     }

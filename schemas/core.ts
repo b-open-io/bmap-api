@@ -353,6 +353,53 @@ export const PostsResponseSchema = t.Object({
 });
 
 // ============================================
+// VIDEO SCHEMAS
+// ============================================
+
+export const VideoMetaSchema = t.Object({
+  views: t.Optional(t.Number()),
+  likes: t.Optional(t.Number()),
+  comments: t.Optional(t.Number()),
+  lastPlayed: t.Optional(t.Number()),
+  reactions: t.Optional(t.Array(
+    t.Object({
+      emoji: t.String(),
+      count: t.Number(),
+    })
+  )),
+});
+
+export const VideoStateSchema = t.Object({
+  channel: t.String(),
+  videoID: t.String(),
+  action: t.String(),
+  position: t.Number(),
+  timestamp: t.Number(),
+  txid: t.String(),
+});
+
+export const VideoResponseSchema = t.Object({
+  video: BmapTxSchema,
+  meta: t.Optional(VideoMetaSchema),
+});
+
+export const VideosResponseSchema = t.Object({
+  page: t.Number(),
+  limit: t.Number(),
+  count: t.Number(),
+  results: t.Array(BmapTxSchema),
+  signers: t.Array(BapIdentitySchema),
+  meta: t.Optional(t.Array(VideoMetaSchema)),
+});
+
+export const VideoStateResponseSchema = t.Object({
+  channel: t.String(),
+  states: t.Array(VideoStateSchema),
+});
+
+export const VideoHistoryResponseSchema = t.Array(BmapTxSchema);
+
+// ============================================
 // SEARCH & AUTOFILL
 // ============================================
 

@@ -31,7 +31,7 @@ export const handleTxRequest = async (txid: string, format?: string) => {
     } else {
       console.log('Cache miss for tx:', txid);
       const db = await getDbo();
-      const collections = ['message', 'like', 'post', 'repost'];
+      const collections = ['message', 'like', 'post', 'repost', 'video'];
       let dbTx: BmapTx | null = null;
       for (const collection of collections) {
         const result = await db

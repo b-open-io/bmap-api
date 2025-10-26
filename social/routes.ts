@@ -81,6 +81,21 @@ function validateSignerData(signer: BapIdentity): { isValid: boolean; errors: st
   };
 }
 
+// Import video-related schemas and functions
+import {
+  VideoResponseSchema,
+  VideosResponseSchema,
+  VideoStateResponseSchema,
+  VideoHistoryResponseSchema,
+} from '../schemas/core.js';
+import {
+  getVideo,
+  getVideos,
+  getVideoStatesByChannel,
+  getVideoHistory,
+  searchVideos,
+} from '../queries/videos.js';
+
 export const socialRoutes = new Elysia()
   .get(
     '/channels',
@@ -849,5 +864,154 @@ export const socialRoutes = new Elysia()
     {
       response: t.Array(BapIdentitySchema),
       detail: identityEndpointDetail,
+    }
+  )
+  // ============================================
+  // VIDEO ROUTES
+  // ============================================
+  .get(
+    '/video/:txid',
+    async ({ params }) => {
+      return getVideo(params.txid);
+    },
+    {
+      params: TxIdParams,
+      response: VideoResponseSchema,
+      detail: {
+        tags: ['videos'],
+        summary: 'Get single video by transaction ID',
+        description: 'Retrieves a single video transaction with metadata',
+      },
+    }
+  )
+  .get(
+    '/video',
+    async ({ query }) => {
+      const page = Number.parseInt(query.page || String(DEFAULT_PAGE));
+      const limit = Number.parseInt(query.limit || String(DEFAULT_PAGE_SIZE));
+      
+      return getVideos({
+        page,
+        limit,
+        channel: query.channel,
+        videoID: query.videoID,
+      });
+    },
+    {
+      query: t.Object({
+        page: t.Optional(t.String()),
+        limit: t.Optional(t.String()),
+        channel: t.Optional(t.String()),
+        videoID: t.Optional(t.String()),
+      }),
+      response: VideosResponseSchema,
+      detail: {
+        tags: ['videos'],
+        summary: 'Get videos with pagination',
+        description: 'Retrieves videos with optional filtering by channel or video ID',
+      },
+    }
+  )
+  .get(
+    '/video/channel/:channel',
+    async ({ params }) => {
+      return getVideoStatesByChannel(params.channel);
+    },
+    {
+      params: t.Object({
+        channel: t.String({ description: 'Channel name' }),
+      }),
+      response: VideoStateResponseSchema,
+      detail: {
+        tags: ['videos'],
+        summary: 'Get video states by channel',
+        description: 'Retrieves current video playback states for a specific channel',
+      },
+    }
+  )
+  .get(
+    '/video/channel/:channel/history',
+    async ({ params, query }) => {
+      // Use query parameter for videoID to avoid double nesting
+      const videoID = query.videoID;
+      if (!videoID) {
+        throw new ValidationError('videoID query parameter is required');
+      }
+      return getVideoHistory(params.channel, videoID);
+    },
+    {
+      params: t.Object({
+        channel: t.String({ description: 'Channel name' }),
+      }),
+      query: t.Object({
+        videoID: t.String({ description: 'Video ID' }),
+      }),
+      response: VideoHistoryResponseSchema,
+      detail: {
+        tags: ['videos'],
+        summary: 'Get video history',
+        description: 'Retrieves history of video actions for a specific video in a channel',
+      },
+    }
+  )
+  .get(
+    '/video/address/:address',
+    async ({ params, query }) => {
+      const page = Number.parseInt(query.page || String(DEFAULT_PAGE));
+      const limit = Number.parseInt(query.limit || String(DEFAULT_PAGE_SIZE));
+      
+      return getVideos({
+        page,
+        limit,
+        address: params.address,
+      });
+    },
+    {
+      params: AddressParams,
+      query: PaginationQuery,
+      response: VideosResponseSchema,
+      detail: {
+        tags: ['videos'],
+        summary: 'Get videos by address',
+        description: 'Retrieves videos posted by a specific Bitcoin address',
+      },
+    }
+  )
+  .get(
+    '/video/bap/:bapId',
+    async ({ params, query }) => {
+      const page = Number.parseInt(query.page || String(DEFAULT_PAGE));
+      const limit = Number.parseInt(query.limit || String(DEFAULT_PAGE_SIZE));
+      
+      return getVideos({
+        page,
+        limit,
+        bapId: params.bapId,
+      });
+    },
+    {
+      params: BapIdParams,
+      query: PaginationQuery,
+      response: VideosResponseSchema,
+      detail: {
+        tags: ['videos'],
+        summary: 'Get videos by BAP ID',
+        description: 'Retrieves videos posted by a specific BAP identity',
+      },
+    }
+  )
+  .get(
+    '/video/search',
+    async ({ query }) => {
+      return searchVideos(query.q, Number.parseInt(query.limit || '20'));
+    },
+    {
+      query: SearchQuery,
+      response: VideosResponseSchema,
+      detail: {
+        tags: ['videos'],
+        summary: 'Search videos',
+        description: 'Search videos by title or description',
+      },
     }
   );

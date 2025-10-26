@@ -40,6 +40,7 @@ export const COLLECTIONS = {
   POST: 'post',
   MESSAGE: 'message',
   PIN_CHANNEL: 'pin_channel',
+  VIDEO: 'video',
 
   // BAP collections
   IDENTITIES: 'identities',
