@@ -1,8 +1,7 @@
 import type { BmapTx } from 'bmapjs';
 import chalk from 'chalk';
 import { Elysia, t } from 'elysia';
-import type { ChangeStreamDocument } from 'mongodb';
-import type { ChangeStream } from 'mongodb';
+import type { ChangeStream, ChangeStreamDocument } from 'mongodb';
 import { resolveSigners } from '../bap.js';
 import { getDbo } from '../db.js';
 

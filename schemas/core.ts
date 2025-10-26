@@ -361,12 +361,14 @@ export const VideoMetaSchema = t.Object({
   likes: t.Optional(t.Number()),
   comments: t.Optional(t.Number()),
   lastPlayed: t.Optional(t.Number()),
-  reactions: t.Optional(t.Array(
-    t.Object({
-      emoji: t.String(),
-      count: t.Number(),
-    })
-  )),
+  reactions: t.Optional(
+    t.Array(
+      t.Object({
+        emoji: t.String(),
+        count: t.Number(),
+      })
+    )
+  ),
 });
 
 export const VideoStateSchema = t.Object({

@@ -83,12 +83,7 @@ export async function getChannelMessages(params: {
       },
     ],
     B: msg.B?.map(
-      (b: {
-        encoding?: string;
-        content?: string;
-        'content-type'?: string;
-        filename?: string;
-      }) => ({
+      (b: { encoding?: string; content?: string; 'content-type'?: string; filename?: string }) => ({
         encoding: b?.encoding || '',
         content: b?.content || '',
         'content-type': b?.['content-type'] || 'text/plain',

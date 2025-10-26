@@ -1,6 +1,8 @@
 {
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "dependencies": {
     "@constl/orbit-db-types": "^1.2.9",
     "@elysiajs/cors": "^1.3.3",

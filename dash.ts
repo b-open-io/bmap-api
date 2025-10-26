@@ -1,4 +1,5 @@
 import type QuickChart from 'quickchart-js';
+
 function collectionQuery(collection: string) {
   const q = defaultQuery;
   q.q.find['MAP.type'] = collection;

@@ -14,6 +14,7 @@ import {
   getTrendingUsers,
   getUserMetrics,
 } from './queries.js';
+import type { AlertConfig, DashboardConfig, StreamMessage } from './schemas.js';
 import {
   AdminStatsParams,
   AdminStatsResponse,
@@ -37,7 +38,6 @@ import {
   UserMetricsParams,
   UserMetricsResponse,
 } from './schemas.js';
-import type { AlertConfig, DashboardConfig, StreamMessage } from './schemas.js';
 
 export const analyticsRoutes = new Elysia({ prefix: '/analytics' })
   .get(

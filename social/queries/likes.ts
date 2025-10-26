@@ -2,8 +2,7 @@ import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
-import type { BapIdentity } from '../../types.js';
-import type { LikeTransaction, LikesResponse } from '../../types.js';
+import type { BapIdentity, LikesResponse, LikeTransaction } from '../../types.js';
 import type { Reaction } from '../schemas.js';
 
 // Like document from MongoDB
@@ -21,6 +20,7 @@ interface LikesParams {
   page?: number;
   limit?: number;
 }
+
 import { fetchBapIdentityData, validateSignerData } from './identity.js';
 
 // Helper to process likes with better error handling and logging

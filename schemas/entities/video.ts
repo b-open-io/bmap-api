@@ -12,7 +12,7 @@ export interface Video {
     t: number; // Block timestamp
   };
   timestamp?: number; // Transaction timestamp
-  
+
   // MAP Protocol fields
   MAP: Array<{
     app?: string; // e.g., 'minerva'
@@ -26,7 +26,7 @@ export interface Video {
     position?: number; // Current playback position in seconds
     [key: string]: unknown;
   }>;
-  
+
   // AIP (Author Identity Protocol)
   AIP?: Array<{
     algorithm?: string;
@@ -34,7 +34,7 @@ export interface Video {
     signature?: string;
     [key: string]: unknown;
   }>;
-  
+
   // B Protocol (Binary data)
   B?: Array<{
     content?: string;
@@ -43,14 +43,14 @@ export interface Video {
     filename?: string;
     [key: string]: unknown;
   }>;
-  
+
   // BAP (Bitcoin Attestation Protocol)
   BAP?: Array<{
     type?: string;
     address?: string;
     [key: string]: unknown;
   }>;
-  
+
   // Additional fields for query optimization
   'AIP.address'?: string | string[]; // Denormalized for faster queries
 }

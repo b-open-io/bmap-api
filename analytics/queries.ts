@@ -1,5 +1,4 @@
-import { client } from '../cache.js';
-import { getBlockHeightFromCache } from '../cache.js';
+import { client, getBlockHeightFromCache } from '../cache.js';
 import { getDbo } from '../db.js';
 import type {
   ActivityItem,

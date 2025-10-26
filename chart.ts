@@ -1,5 +1,5 @@
-import { createCanvas } from '@napi-rs/canvas';
 import type { SKRSContext2D } from '@napi-rs/canvas';
+import { createCanvas } from '@napi-rs/canvas';
 import type { ChartConfiguration } from 'chart.js';
 import { Chart, registerables } from 'chart.js';
 

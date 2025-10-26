@@ -1,5 +1,5 @@
-import { Elysia } from 'elysia';
 import type { Context } from 'elysia';
+import { Elysia } from 'elysia';
 
 export interface ApiError extends Error {
   statusCode?: number;

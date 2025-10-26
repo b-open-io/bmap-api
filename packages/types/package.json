@@ -5,13 +5,22 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist/**/*", "package.json"],
+  "files": [
+    "dist/**/*",
+    "package.json"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "bun run build && node dist/version.test.js"
   },
-  "keywords": ["bmap", "bitcoin", "bsv", "types", "typescript"],
+  "keywords": [
+    "bmap",
+    "bitcoin",
+    "bsv",
+    "types",
+    "typescript"
+  ],
   "author": "BMAP API Team",
   "license": "MIT",
   "devDependencies": {

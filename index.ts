@@ -1,14 +1,16 @@
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
+import type { BmapTx } from 'bmapjs';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
 import { Elysia, NotFoundError } from 'elysia';
 import type { ChangeStreamDocument } from 'mongodb';
 
-import type { BmapTx } from 'bmapjs';
-
 import './logger.js'; // Initialize logger first
 import './p2p.js';
+
+import type { ChangeStream } from 'mongodb';
+import { analyticsRoutes, healthRoutes } from './analytics/routes.js';
 import { resolveSigners } from './bap.js';
 import { client, getBlockHeightFromCache } from './cache.js';
 import { getBlocksRange, getTimeSeriesData } from './chart.js';
@@ -17,14 +19,11 @@ import { getDbo } from './db.js';
 import { handleTxRequest } from './handlers/transaction.js';
 import { createErrorHandler, errorHandlerPlugin } from './middleware/errorHandler.js';
 import { processTransaction } from './process.js';
-import { Timeframe } from './types.js';
-
-import type { ChangeStream } from 'mongodb';
-import { analyticsRoutes, healthRoutes } from './analytics/routes.js';
 import { chartRoutes } from './routes/chart.js';
 import { queryRoutes } from './routes/query.js';
 import { transactionRoutes } from './routes/transaction.js';
 import { socialRoutes } from './social/routes.js';
+import { Timeframe } from './types.js';
 
 dotenv.config();
 

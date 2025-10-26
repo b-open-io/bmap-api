@@ -2,13 +2,13 @@ import { getBAPIdentites, getSigners } from '../bap.js';
 import { getDbo } from '../db.js';
 import { NotFoundError } from '../middleware/errorHandler.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
-import type { BapIdentity } from '../types.js';
 import type {
+  BapIdentity,
   PostMeta,
   PostResponse,
-  PostTransaction,
   PostsParams,
   PostsResponse,
+  PostTransaction,
   RepliesParams,
   SearchParams,
 } from '../types.js';

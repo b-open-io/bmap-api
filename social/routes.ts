@@ -2,19 +2,20 @@ import type { BmapTx } from 'bmapjs';
 import { Elysia, t } from 'elysia';
 import type { ChangeStreamInsertDocument, Db } from 'mongodb';
 import { getBAPIdByAddress, resolveSigners, searchIdentities } from '../bap.js';
-import { client, readFromRedis, saveToRedis } from '../cache.js';
 import type { CacheError, CacheSigner, CacheValue } from '../cache.js';
+import { client, readFromRedis, saveToRedis } from '../cache.js';
 import { CACHE_TTL, DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from '../config/constants.js';
 import { getDbo } from '../db.js';
 import { NotFoundError, ServerError, ValidationError } from '../middleware/errorHandler.js';
 import { getDirectMessages, watchAllMessages, watchDirectMessages } from '../queries/messages.js';
+import { getPost, getPosts, getReplies, searchPosts } from '../queries/posts.js';
 // Import core shared schemas (SINGLE SOURCE OF TRUTH)
 import {
   AddressParams,
   AutofillQuery,
   AutofillResponse,
-  BapIdParams,
   BapIdentitySchema,
+  BapIdParams,
   ChannelMessageSchema,
   ChannelParams,
   ChannelResponseSchema,
@@ -41,7 +42,6 @@ import { fetchAllFriendsAndUnfriends, processRelationships } from './queries/fri
 import { fetchBapIdentityData } from './queries/identity.js';
 import { getLikes, processLikes } from './queries/likes.js';
 import { getChannelMessages, updateSignerCache } from './queries/messages.js';
-
 // Import types for internal use
 import type {
   ChannelMessage,
@@ -52,8 +52,6 @@ import type {
   BaseMessage as Message,
   Post,
 } from './schemas.js';
-
-import { getPost, getPosts, getReplies, searchPosts } from '../queries/posts.js';
 // Import swagger endpoint details
 import { channelsEndpointDetail } from './swagger/channels.js';
 import { friendEndpointDetail } from './swagger/friend.js';
@@ -81,20 +79,20 @@ function validateSignerData(signer: BapIdentity): { isValid: boolean; errors: st
   };
 }
 
-// Import video-related schemas and functions
-import {
-  VideoResponseSchema,
-  VideosResponseSchema,
-  VideoStateResponseSchema,
-  VideoHistoryResponseSchema,
-} from '../schemas/core.js';
 import {
   getVideo,
-  getVideos,
-  getVideoStatesByChannel,
   getVideoHistory,
+  getVideoStatesByChannel,
+  getVideos,
   searchVideos,
 } from '../queries/videos.js';
+// Import video-related schemas and functions
+import {
+  VideoHistoryResponseSchema,
+  VideoResponseSchema,
+  VideoStateResponseSchema,
+  VideosResponseSchema,
+} from '../schemas/core.js';
 
 export const socialRoutes = new Elysia()
   .get(
@@ -889,7 +887,7 @@ export const socialRoutes = new Elysia()
     async ({ query }) => {
       const page = Number.parseInt(query.page || String(DEFAULT_PAGE));
       const limit = Number.parseInt(query.limit || String(DEFAULT_PAGE_SIZE));
-      
+
       return getVideos({
         page,
         limit,
@@ -959,7 +957,7 @@ export const socialRoutes = new Elysia()
     async ({ params, query }) => {
       const page = Number.parseInt(query.page || String(DEFAULT_PAGE));
       const limit = Number.parseInt(query.limit || String(DEFAULT_PAGE_SIZE));
-      
+
       return getVideos({
         page,
         limit,
@@ -982,7 +980,7 @@ export const socialRoutes = new Elysia()
     async ({ params, query }) => {
       const page = Number.parseInt(query.page || String(DEFAULT_PAGE));
       const limit = Number.parseInt(query.limit || String(DEFAULT_PAGE_SIZE));
-      
+
       return getVideos({
         page,
         limit,

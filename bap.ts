@@ -6,6 +6,7 @@ import { EXTERNAL_APIS } from './config/constants.js';
 import { getBAPDbo } from './db.js';
 import type { SearchParams } from './social/queries/types.js';
 import type { BapAddress, BapIdentity } from './types.js';
+
 const { uniq, uniqBy } = _;
 
 export interface BapIdentityObject {
