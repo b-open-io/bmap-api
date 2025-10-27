@@ -352,6 +352,32 @@ export const PostsResponseSchema = t.Object({
   meta: t.Array(MetaSchema),
 });
 
+// Activity aggregation response
+export const ActivityResponseSchema = t.Object({
+  results: t.Array(
+    t.Intersect([
+      BmapTxSchema,
+      t.Object({
+        collection: t.String(),
+      }),
+    ])
+  ),
+  signers: t.Array(BapIdentitySchema),
+  meta: t.Object({
+    limit: t.Number(),
+    blocks: t.Union([t.Number(), t.Null()]),
+    collections: t.Array(t.String()),
+    cached: t.Boolean(),
+  }),
+});
+
+// Activity query params
+export const ActivityQuery = t.Object({
+  limit: t.Optional(t.String()),
+  blocks: t.Optional(t.String()),
+  types: t.Optional(t.String()), // comma-separated: friend,message,like,pin_channel
+});
+
 // ============================================
 // VIDEO SCHEMAS
 // ============================================

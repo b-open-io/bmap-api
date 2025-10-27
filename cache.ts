@@ -4,6 +4,7 @@ import redis from 'redis';
 import type { TimeSeriesData } from './chart.js';
 import { CACHE_TTL } from './config/constants.js';
 import { getCurrentBlockHeight } from './db.js';
+import type { ActivityResponse } from './social/queries/activity.js';
 // Import social types from consolidated schemas
 import type {
   ChannelInfo,
@@ -59,7 +60,8 @@ export type CacheValue =
   | { type: 'timeSeriesData'; value: TimeSeriesData }
   | { type: 'reactions'; value: Reactions }
   | { type: 'identities'; value: BapIdentity[] }
-  | { type: 'friends'; value: { friends: Friend[]; incoming: string[]; outgoing: string[] } };
+  | { type: 'friends'; value: { friends: Friend[]; incoming: string[]; outgoing: string[] } }
+  | { type: 'activity'; value: ActivityResponse };
 
 export async function saveToRedis<T extends CacheValue>(
   key: string,

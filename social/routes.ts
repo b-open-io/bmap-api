@@ -11,6 +11,8 @@ import { getDirectMessages, watchAllMessages, watchDirectMessages } from '../que
 import { getPost, getPosts, getReplies, searchPosts } from '../queries/posts.js';
 // Import core shared schemas (SINGLE SOURCE OF TRUTH)
 import {
+  ActivityQuery,
+  ActivityResponseSchema,
   AddressParams,
   AutofillQuery,
   AutofillResponse,
@@ -37,6 +39,7 @@ import {
   TxIdParams,
 } from '../schemas/core.js';
 import type { BapIdentity } from '../types.js';
+import { getRecentActivity } from './queries/activity.js';
 import { getChannels } from './queries/channels.js';
 import { fetchAllFriendsAndUnfriends, processRelationships } from './queries/friends.js';
 import { fetchBapIdentityData } from './queries/identity.js';
@@ -95,6 +98,71 @@ import {
 } from '../schemas/core.js';
 
 export const socialRoutes = new Elysia()
+  // Recent activity aggregation endpoint
+  .get(
+    '/activity',
+    async ({ query, set }) => {
+      try {
+        const limit = query.limit ? Number.parseInt(query.limit, 10) : undefined;
+        const blocks = query.blocks ? Number.parseInt(query.blocks, 10) : undefined;
+        const types = query.types ? query.types.split(',').map((t) => t.trim()) : undefined;
+
+        const response = await getRecentActivity({ limit, blocks, types });
+
+        Object.assign(set.headers, {
+          'Cache-Control': 'public, max-age=30',
+        });
+
+        return response;
+      } catch (error) {
+        console.error('Activity endpoint error:', error);
+        set.status = 500;
+        return {
+          results: [],
+          signers: [],
+          meta: {
+            limit: 50,
+            blocks: null,
+            collections: [],
+            cached: false,
+          },
+        };
+      }
+    },
+    {
+      query: ActivityQuery,
+      response: ActivityResponseSchema,
+      detail: {
+        tags: ['social'],
+        summary: 'Get recent social activity',
+        description:
+          'Aggregates recent activity from multiple collections (friend, message, like, pin_channel). Returns most recent N items per collection, optionally filtered by last N blocks.',
+        parameters: [
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', default: '50' },
+            description: 'Number of items per collection (max 200)',
+          },
+          {
+            name: 'blocks',
+            in: 'query',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Only include items from last N blocks',
+          },
+          {
+            name: 'types',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', default: 'friend,message,like,pin_channel' },
+            description: 'Comma-separated activity types to include',
+          },
+        ],
+      },
+    }
+  )
   .get(
     '/channels',
     async ({ set }) => {
