@@ -21,7 +21,7 @@ export const CACHE_TTL = {
 
 // External API URLs
 export const EXTERNAL_APIS = {
-  BAP: 'https://api.sigmaidentity.com/api/v1/',
+  BAP: 'https://api.sigmaidentity.com/v1/',
   JUNGLE_BUS: 'junglebus.gorillapool.io',
 } as const;
 
