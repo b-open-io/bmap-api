@@ -6,9 +6,9 @@ import type {
   BapIdentity,
   PostMeta,
   PostResponse,
+  PostTransaction,
   PostsParams,
   PostsResponse,
-  PostTransaction,
   RepliesParams,
   SearchParams,
 } from '../types.js';

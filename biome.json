@@ -2,6 +2,7 @@
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
     "include": ["**/*.ts", "**/*.tsx"],
+    "ignore": ["**/dist/**", "**/node_modules/**"],
     "ignoreUnknown": true
   },
   "formatter": {
