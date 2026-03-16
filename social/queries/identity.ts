@@ -32,7 +32,7 @@ export async function fetchBapIdentityData(bapId: string): Promise<BapIdentity |
     return cached.value;
   }
 
-  const url = 'https://api.sigmaidentity.com/api/v1/identity/get';
+  const url = 'https://sigma.1sat.app/1sat/bap/identity/get';
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

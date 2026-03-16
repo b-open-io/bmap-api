@@ -320,7 +320,7 @@ Client → BMAP API → External bsocial API → Response (proxy)
 - **MongoDB playground files** for testing complex queries
 
 **2. External API Delegation** (Write Operations):
-- **Transaction ingestion** delegated to `https://api.sigmaidentity.com/api/v1/ingest`
+- **Transaction ingestion** delegated to `https://sigma.1sat.app/1sat/bap/ingest`
 - **BMAP API acts as proxy** - forwards raw transactions to bsocial overlay API
 - **Single source of truth** for transaction processing and indexing
 - **Simplified architecture** - BMAP API is now primarily read-only
