@@ -2,7 +2,7 @@ import { getBAPIdByAddress } from '../../bap.js';
 import type { CacheValue } from '../../cache.js';
 import { readFromRedis, saveToRedis } from '../../cache.js';
 import { getDbo } from '../../db.js';
-import type { BapIdentity, LikeTransaction, LikesResponse } from '../../types.js';
+import type { BapIdentity, LikesResponse, LikeTransaction } from '../../types.js';
 import type { Reaction } from '../schemas.js';
 
 // Like document from MongoDB

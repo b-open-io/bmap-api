@@ -77,7 +77,7 @@ async function getState(): Promise<State | undefined> {
   return await dbo.collection('_state').findOne<State>({});
 }
 
-export { closeDb, getCollectionCounts, getCurrentBlockHeight, getDbo, getBAPDbo, getState };
+export { closeDb, getBAPDbo, getCollectionCounts, getCurrentBlockHeight, getDbo, getState };
 
 // db.c.createIndex({
 //   "MAP.app": 1,

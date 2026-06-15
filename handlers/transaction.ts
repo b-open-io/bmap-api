@@ -103,7 +103,7 @@ export const handleTxRequest = async (txid: string, format?: string) => {
         contentType = decoded.B[vout]['content-type'];
       }
       if (dataBuf && contentType) {
-        return new Response(dataBuf, {
+        return new Response(new Uint8Array(dataBuf), {
           headers: {
             'Content-Type': contentType,
             'Content-Length': String(dataBuf.length),

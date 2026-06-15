@@ -4,7 +4,7 @@ import { getBAPIdByAddress, getSigners } from '../bap.js';
 import { PROTOCOL_START_BLOCK } from '../constants.js';
 import { getDbo } from '../db.js';
 import { fetchBapIdentityData } from '../social/queries/identity.js';
-import type { BapIdentity, MessageMeta, MessageTransaction, MessagesResponse } from '../types.js';
+import type { BapIdentity, MessageMeta, MessagesResponse, MessageTransaction } from '../types.js';
 
 interface MessageQueryParams {
   bapId: string;
