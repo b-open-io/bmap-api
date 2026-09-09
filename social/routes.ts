@@ -18,6 +18,7 @@ import {
   AutofillResponse,
   BapIdentitySchema,
   BapIdParams,
+  BatchLikesSchema,
   ChannelMessageSchema,
   ChannelParams,
   ChannelResponseSchema,
@@ -25,10 +26,11 @@ import {
   FeedParams,
   FriendResponseSchema,
   IdentityResponseSchema,
-  LikeRequestSchema,
   LikeResponseSchema,
+  LikesQueryRequestSchema,
   MessageListenParams,
   MessagesResponseSchema,
+  PaginatedLikesSchema,
   PaginationQuery,
   PostQuery,
   PostResponseSchema,
@@ -55,6 +57,7 @@ import type {
   BaseMessage as Message,
   Post,
 } from './schemas.js';
+import { closeMessageStream, openMessageStream } from './streams.js';
 // Import swagger endpoint details
 import { channelsEndpointDetail } from './swagger/channels.js';
 import { friendEndpointDetail } from './swagger/friend.js';
@@ -400,11 +403,7 @@ export const socialRoutes = new Elysia()
         return getPosts(postQuery);
       } catch (error: unknown) {
         console.error('Error fetching feed:', error);
-        set.status = 500;
-        return {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch feed',
-        };
+        throw error;
       }
     },
     {
@@ -425,11 +424,7 @@ export const socialRoutes = new Elysia()
         return getPost(params.txid);
       } catch (error: unknown) {
         console.error('Error fetching feed:', error);
-        set.status = 500;
-        return {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch feed',
-        };
+        throw error;
       }
     },
     {
@@ -455,11 +450,7 @@ export const socialRoutes = new Elysia()
         return getReplies(repliesQuery);
       } catch (error: unknown) {
         console.error('Error fetching feed:', error);
-        set.status = 500;
-        return {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch feed',
-        };
+        throw error;
       }
     },
     {
@@ -485,17 +476,13 @@ export const socialRoutes = new Elysia()
         return getLikes(repliesQuery);
       } catch (error: unknown) {
         console.error('Error fetching feed:', error);
-        set.status = 500;
-        return {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch feed',
-        };
+        throw error;
       }
     },
     {
       params: TxIdParams,
       query: PostQuery,
-      response: LikeResponseSchema,
+      response: PaginatedLikesSchema,
       detail: {
         tags: ['likes'],
         summary: 'Get likes for a post',
@@ -515,11 +502,7 @@ export const socialRoutes = new Elysia()
         return getPosts(postQuery);
       } catch (error: unknown) {
         console.error('Error fetching feed:', error);
-        set.status = 500;
-        return {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch feed',
-        };
+        throw error;
       }
     },
     {
@@ -571,17 +554,13 @@ export const socialRoutes = new Elysia()
         return getLikes(repliesQuery);
       } catch (error: unknown) {
         console.error('Error fetching feed:', error);
-        set.status = 500;
-        return {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch feed',
-        };
+        throw error;
       }
     },
     {
       params: BapIdParams,
       query: PostQuery,
-      response: LikeResponseSchema,
+      response: PaginatedLikesSchema,
       detail: {
         tags: ['likes'],
         summary: 'Get likes by BAP ID',
@@ -599,7 +578,12 @@ export const socialRoutes = new Elysia()
         }
 
         const db = await getDbo();
-        const results: LikeInfo[] = [];
+        const results: Array<{
+          txid: string;
+          likes: unknown[];
+          total: number;
+          signers: BapIdentity[];
+        }> = [];
 
         if (request.txids) {
           for (const txid of request.txids) {
@@ -609,7 +593,11 @@ export const socialRoutes = new Elysia()
                 'MAP.type': 'like',
                 'MAP.tx': txid,
               })
+              .limit(1001)
+              .project({ in: 0, out: 0 })
               .toArray();
+            if (likes.length > 1000)
+              throw new ValidationError('Too many likes; use the paginated likes endpoint');
 
             const { signers } = await processLikes(likes);
 
@@ -630,7 +618,11 @@ export const socialRoutes = new Elysia()
                 'MAP.type': 'like',
                 'MAP.messageID': messageId,
               })
+              .limit(1001)
+              .project({ in: 0, out: 0 })
               .toArray();
+            if (likes.length > 1000)
+              throw new ValidationError('Too many likes; use the paginated likes endpoint');
 
             const { signers } = await processLikes(likes);
 
@@ -651,8 +643,8 @@ export const socialRoutes = new Elysia()
       }
     },
     {
-      body: LikeRequestSchema,
-      response: LikeResponseSchema,
+      body: LikesQueryRequestSchema,
+      response: BatchLikesSchema,
       detail: likesEndpointDetail,
     }
   )
@@ -779,58 +771,48 @@ export const socialRoutes = new Elysia()
   )
   .ws('/@/:bapId/messages/:targetBapId/listen', {
     body: MessageListenParams,
-    open: async (ws) => {
-      const { bapId, targetBapId } = ws.data.params;
-      const identity = await fetchBapIdentityData(bapId);
-      if (!identity?.currentAddress) {
-        throw new Error(`Invalid BAP identity data for bapId: ${bapId}`);
-      }
-      const bapAddress = identity.currentAddress;
-      const targetIdentity = await fetchBapIdentityData(targetBapId);
-      if (!targetIdentity?.currentAddress) {
-        throw new Error('Invalid target BAP identity');
-      }
-      const targetAddress = targetIdentity.currentAddress;
-
-      const cursor = await watchDirectMessages({
-        bapId,
-        bapAddress,
-        targetBapId,
-        targetAddress,
-      });
-
-      cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
-        ws.send(change.fullDocument?.tx.h);
-      });
-    },
+    open: (ws) =>
+      openMessageStream(
+        ws,
+        async () => {
+          const { bapId, targetBapId } = ws.data.params;
+          const identity = await fetchBapIdentityData(bapId);
+          const targetIdentity = await fetchBapIdentityData(targetBapId);
+          if (!identity?.currentAddress || !targetIdentity?.currentAddress)
+            throw new Error('Invalid BAP identity');
+          return watchDirectMessages({
+            bapId,
+            bapAddress: identity.currentAddress,
+            targetBapId,
+            targetAddress: targetIdentity.currentAddress,
+          });
+        },
+        (change) => (change.operationType === 'insert' ? (change.fullDocument?.tx?.h ?? '') : '')
+      ),
+    close: (ws) => closeMessageStream(ws),
     detail: messageListenEndpointDetail,
   })
   .ws('/@/:bapId/messages/listen', {
     body: MessageListenParams,
-    open: async (ws) => {
-      const { bapId } = ws.data.params;
-      const identity = await fetchBapIdentityData(bapId);
-      if (!identity?.currentAddress) {
-        ws.close(4403, 'Invalid BAP identity');
-        console.error('Invalid BAP identity:', identity);
-        return;
-        // throw new Error('Invalid BAP identity');
-      }
-      const bapAddress = identity.currentAddress;
-
-      const cursor = await watchAllMessages({
-        bapId,
-        bapAddress,
-      });
-
-      cursor.on('change', (change: ChangeStreamInsertDocument<BmapTx>) => {
-        ws.send({
-          tx: change.fullDocument?.tx.h,
-          targetBapID: change.fullDocument?.MAP?.[0]?.bapID,
-          address: change.fullDocument?.AIP?.[0]?.address,
-        });
-      });
-    },
+    open: (ws) =>
+      openMessageStream(
+        ws,
+        async () => {
+          const { bapId } = ws.data.params;
+          const identity = await fetchBapIdentityData(bapId);
+          if (!identity?.currentAddress) throw new Error('Invalid BAP identity');
+          return watchAllMessages({ bapId, bapAddress: identity.currentAddress });
+        },
+        (change) =>
+          change.operationType === 'insert'
+            ? {
+                tx: change.fullDocument?.tx?.h,
+                targetBapID: change.fullDocument?.MAP?.[0]?.bapID,
+                address: change.fullDocument?.AIP?.[0]?.address,
+              }
+            : {}
+      ),
+    close: (ws) => closeMessageStream(ws),
     detail: messageListenEndpointDetail,
   })
   .get(

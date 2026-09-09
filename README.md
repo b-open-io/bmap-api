@@ -203,3 +203,23 @@ bun test
 ## License
 
 MIT
+
+### Runtime and social backend
+
+Run with Bun 1.4.2 or newer. The Docker deployment pins Bun 1.4.2 and uses
+`/healthz` for its health check. Configure `BMAP_MONGO_URL` and
+`REDIS_PRIVATE_URL` for the existing data services.
+
+Identity reads continue to use `sigma.1sat.app/1sat/bap/`. Social transaction
+submission uses `api.sigmaidentity.com/v1/ingest` with raw binary transaction
+bytes. These are separate services; changing an identity endpoint does not
+migrate social ingestion.
+
+Public `/q` reads are limited to 100 records and 4 MiB, with database timeouts.
+SSE and message subscriptions close their MongoDB cursors on disconnect;
+backpressure and subscription caps keep slow clients from retaining unbounded
+queues. Chart rendering releases each Chart.js instance after encoding.
+
+MAP values with non-UTF-8 bytes are returned as `{ "b": "<base64>" }` by the
+updated Go parser and storage pipeline. Decode `b` to recover the original
+bytes. Protocol extension fields are preserved by response validation.

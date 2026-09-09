@@ -91,6 +91,7 @@ export async function getRecentActivity(params: ActivityParams): Promise<Activit
         })
         .sort({ 'blk.t': -1, timestamp: -1 })
         .limit(limit)
+        .project({ in: 0, out: 0 })
         .toArray();
 
       // Add collection name to each result
@@ -100,7 +101,7 @@ export async function getRecentActivity(params: ActivityParams): Promise<Activit
       }));
     } catch (error) {
       console.error(`Error querying ${collectionName}:`, error);
-      return [];
+      throw new Error(`Failed to read ${collectionName} activity`);
     }
   });
 
@@ -114,7 +115,7 @@ export async function getRecentActivity(params: ActivityParams): Promise<Activit
       const timeB = b.blk?.t || b.timestamp || 0;
       return timeB - timeA; // Descending order (newest first)
     })
-    .slice(0, limit * validTypes.length); // Limit total results
+    .slice(0, limit); // Limit total results
 
   // Get unique signer addresses
   const signerAddresses = new Set<string>();

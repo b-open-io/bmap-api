@@ -36,15 +36,12 @@ const generateChart = (
   timeSeriesData: TimeSeriesData,
   globalChart: boolean
 ): { chartBuffer: Buffer; chartConfig: ChartConfiguration } => {
-  console.log('Generating chart with data:', { timeSeriesData, globalChart });
-
   const dpi = 2;
   const width = 1280 / (globalChart ? 1 : 4);
   const height = 300 / (globalChart ? 1 : 4);
 
   const labels = timeSeriesData.map((d) => d._id);
   const dataValues = timeSeriesData.map((d) => d.count);
-  console.log('Chart data points:', { labels, dataValues });
 
   const minBlock = Math.min(...labels);
   const maxBlock = Math.max(...labels);
@@ -153,7 +150,6 @@ const generateChart = (
           },
     },
   };
-  console.log('Chart config:', JSON.stringify(chartConfig, null, 2));
 
   // Create canvas and render chart
   const canvas = createCanvas(width * dpi, height * dpi);
@@ -168,12 +164,12 @@ const generateChart = (
 
   // Create chart with compatible context
   const compatibleCtx = createCompatibleContext(ctx);
-  new Chart(compatibleCtx, chartConfig);
-
-  // Get buffer
-  const chartBuffer = canvas.toBuffer('image/png');
-
-  return { chartBuffer, chartConfig };
+  const chart = new Chart(compatibleCtx, chartConfig);
+  try {
+    return { chartBuffer: canvas.toBuffer('image/png'), chartConfig };
+  } finally {
+    chart.destroy();
+  }
 };
 
 export type ChartResult = {
@@ -187,10 +183,7 @@ const generateTotalsChart = async (
   endBlock: number,
   blockRange = 10
 ): Promise<ChartResult> => {
-  console.log('Generating totals chart:', { collectionName, startBlock, endBlock, blockRange });
-
   const timeSeriesData = await getTimeSeriesData(collectionName, startBlock, endBlock, blockRange);
-  console.log('Time series data:', timeSeriesData);
 
   const { chartBuffer, chartConfig } = generateChart(timeSeriesData, false);
   const chartData = {
@@ -198,7 +191,6 @@ const generateTotalsChart = async (
     width: 1280 / 4,
     height: 300 / 4,
   };
-  console.log('Generated chart data:', chartData);
 
   return { chartBuffer, chartData };
 };
@@ -209,15 +201,12 @@ const generateCollectionChart = async (
   endBlock: number,
   range: number
 ): Promise<ChartResult> => {
-  console.log('Generating collection chart:', { collectionName, startBlock, endBlock, range });
-
   const dbo = await getDbo();
   const allCollections = await dbo.listCollections().toArray();
   const allDataPromises = allCollections.map((c) =>
     getTimeSeriesData(c.name, startBlock, endBlock, range)
   );
   const allTimeSeriesData = await Promise.all(allDataPromises);
-  console.log('All time series data:', allTimeSeriesData);
 
   const globalData: Record<number, number> = {};
   for (const collectionData of allTimeSeriesData) {
@@ -230,7 +219,6 @@ const generateCollectionChart = async (
     _id: Number(blockHeight),
     count: globalData[blockHeight],
   }));
-  console.log('Aggregated data:', aggregatedData);
 
   const { chartBuffer, chartConfig } = generateChart(aggregatedData, true);
   const chartData = {
@@ -238,7 +226,6 @@ const generateCollectionChart = async (
     width: 1280,
     height: 300,
   };
-  console.log('Final chart data:', JSON.stringify(chartData, null, 2));
 
   return { chartBuffer, chartData };
 };
@@ -258,7 +245,6 @@ async function getTimeSeriesData(
     });
 
     if (count === 0) {
-      console.log(`No data found for ${collectionName} between blocks ${startBlock}-${endBlock}`);
       return [];
     }
 
@@ -290,7 +276,6 @@ async function getTimeSeriesData(
     ];
 
     const result = await dbo.collection(collectionName).aggregate(pipeline).toArray();
-    console.log(`Found ${result.length} data points for ${collectionName}`);
     return result as TimeSeriesData;
   } catch (error) {
     console.error(`Error getting time series data for ${collectionName}:`, error);

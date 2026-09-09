@@ -18,13 +18,9 @@ import type { BapIdentity } from './types.js';
 
 const client = redis.createClient({
   url: process.env.REDIS_PRIVATE_URL,
-});
-
-process.on('SIGINT', () => {
-  client.quit().then(() => {
-    console.log('Redis client disconnected');
-    process.exit(0);
-  });
+  disableOfflineQueue: true,
+  commandsQueueMaxLength: 500,
+  socket: { connectTimeout: 10_000 },
 });
 
 client.on('connect', async () => {

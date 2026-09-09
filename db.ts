@@ -1,49 +1,38 @@
-import mongo from 'mongodb';
+import { MongoClient } from 'mongodb';
 
-const MongoClient = mongo.MongoClient;
-let client: mongo.MongoClient = null;
-let db: mongo.Db = null;
-let bapDb: mongo.Db = null;
+let connection: Promise<MongoClient> | undefined;
 
-type State = {
-  _id: string;
-  height: number;
-};
+type State = { _id: string; height: number };
 
-const getDbo = async () => {
-  if (db) {
-    return db;
+// Cache the in-flight connection too: concurrent first requests must share one pool.
+async function getClient(): Promise<MongoClient> {
+  if (!connection) {
+    const url = process.env.BMAP_MONGO_URL;
+    if (!url) throw new Error('BMAP_MONGO_URL is required');
+    const client = new MongoClient(url, {
+      minPoolSize: 0,
+      maxPoolSize: 10,
+      maxIdleTimeMS: 60_000,
+      waitQueueTimeoutMS: 10_000,
+      serverSelectionTimeoutMS: 10_000,
+      timeoutMS: 15_000,
+    });
+    connection = client.connect().catch(async (error) => {
+      connection = undefined;
+      await client.close();
+      throw error;
+    });
   }
-  client = await MongoClient.connect(process.env.BMAP_MONGO_URL, {
-    minPoolSize: 1,
-    maxPoolSize: 10,
-  });
-  db = client.db('bsocial');
-  return db;
-};
+  return connection;
+}
 
-const getBAPDbo = async () => {
-  if (bapDb) {
-    return bapDb;
-  }
-  client = await MongoClient.connect(process.env.BMAP_MONGO_URL, {
-    minPoolSize: 1,
-    maxPoolSize: 10,
-  });
-  bapDb = client.db('bap');
-  return bapDb;
-};
+const getDbo = async () => (await getClient()).db('bsocial');
+const getBAPDbo = async () => (await getClient()).db('bap');
 
 const closeDb = async () => {
-  if (client !== null) {
-    try {
-      await client.close();
-    } catch (_e) {
-      console.error('Failed to close DB');
-      return;
-    }
-    client = null;
-  }
+  const pending = connection;
+  connection = undefined;
+  if (pending) await (await pending).close();
 };
 
 async function getCollectionCounts(fromTimestamp: number): Promise<Record<string, number>[]> {

@@ -1,5 +1,6 @@
 // Consolidated schemas and types for social features
 import { t } from 'elysia';
+import type { BapIdentity } from '../types.js';
 
 // ============================================
 // BASE TYPES & INTERFACES
@@ -21,7 +22,7 @@ export interface RelationshipState {
 
 export interface FriendRequest {
   bapID?: string; // Note: uppercase ID for compatibility
-  bapId?: string;
+  bapId: string;
   txid?: string;
   height?: number;
   requester?: RelationshipState;
@@ -30,7 +31,7 @@ export interface FriendRequest {
 
 export interface Friend {
   bapID?: string; // Note: uppercase ID for compatibility
-  bapId?: string;
+  bapId: string;
   name?: string;
   icon?: string;
   mePublicKey?: string;
@@ -43,17 +44,17 @@ export interface FriendshipResponse {
   isFriend?: boolean;
   isFollower?: boolean;
   isFollowing?: boolean;
-  friends?: Friend[];
+  friends: Friend[];
   followers?: Friend[];
   following?: Friend[];
-  incoming?: Friend[];
-  outgoing?: Friend[];
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
 }
 
 export interface FriendData {
   friends: Friend[];
-  incoming: Friend[];
-  outgoing: Friend[];
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
 }
 
 // Message types
@@ -113,7 +114,7 @@ export interface ChannelMessageResponse {
   limit: number;
   count: number;
   results: BaseMessage[];
-  signers: unknown[];
+  signers: BapIdentity[];
 }
 
 export interface DMResponse {
@@ -191,7 +192,9 @@ export interface SigmaIdentityResult {
   };
   bapId: string;
   idKey: string;
-  addresses: string[];
+  addresses: Array<string | { address: string; txId?: string; txid?: string; block?: number }>;
+  profile?: Record<string, unknown>;
+  firstSeen?: number;
   rootAddress?: string;
   currentAddress?: string;
   identityTxId?: string;
@@ -245,14 +248,18 @@ export interface Post {
 
 // Common query schemas
 export const PaginationQuery = t.Object({
-  page: t.Optional(t.String()),
-  limit: t.Optional(t.String()),
+  page: t.Optional(t.String({ pattern: '^[1-9][0-9]{0,3}$' })),
+  limit: t.Optional(t.String({ pattern: '^(?:[1-9][0-9]?|100)$' })),
 });
 
 export const SearchQuery = t.Object({
   q: t.String({ description: 'Search query' }),
-  limit: t.Optional(t.String({ description: 'Number of results to return' })),
-  page: t.Optional(t.String({ description: 'Page number for pagination' })),
+  limit: t.Optional(
+    t.String({ description: 'Number of results (1–100)', pattern: '^(?:[1-9][0-9]?|100)$' })
+  ),
+  page: t.Optional(
+    t.String({ description: 'Page number for pagination', pattern: '^[1-9][0-9]{0,3}$' })
+  ),
 });
 
 // Path parameter schemas
@@ -313,8 +320,8 @@ export const AutofillResponse = t.Object({
 
 // Message schemas
 export const MessageQuery = t.Object({
-  page: t.Optional(t.String()),
-  limit: t.Optional(t.String()),
+  page: t.Optional(t.String({ pattern: '^[1-9][0-9]{0,3}$' })),
+  limit: t.Optional(t.String({ pattern: '^(?:[1-9][0-9]?|100)$' })),
 });
 
 // Full channel message response (for internal use and caching)
@@ -545,8 +552,8 @@ export const IdentityResponseSchema = t.Array(
 
 // Post schemas
 export const PostQuery = t.Object({
-  page: t.Optional(t.String()),
-  limit: t.Optional(t.String()),
+  page: t.Optional(t.String({ pattern: '^[1-9][0-9]{0,3}$' })),
+  limit: t.Optional(t.String({ pattern: '^(?:[1-9][0-9]?|100)$' })),
   mimetype: t.Optional(t.String()),
   channel: t.Optional(t.String()),
 });

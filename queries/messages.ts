@@ -192,32 +192,44 @@ export async function watchDirectMessages({
     $or: [{ 'fullDocument.blk.i': 0 }, { 'fullDocument.blk.i': { $gt: PROTOCOL_START_BLOCK } }],
   };
 
-  return dbo.collection('message').watch([
-    {
-      $match: {
-        $or: [
-          {
-            $and: [
-              {
-                'fullDocument.MAP.bapID': bapId,
-                ...blockHeightCondition,
-              },
-              { 'fullDocument.AIP.address': targetAddress },
-            ],
-          },
-          {
-            $and: [
-              {
-                'fullDocument.MAP.bapID': targetBapId,
-                ...blockHeightCondition,
-              },
-              { 'fullDocument.AIP.address': bapAddress },
-            ],
-          },
-        ],
+  return dbo.collection('message').watch(
+    [
+      {
+        $match: {
+          $or: [
+            {
+              $and: [
+                {
+                  'fullDocument.MAP.bapID': bapId,
+                  ...blockHeightCondition,
+                },
+                { 'fullDocument.AIP.address': targetAddress },
+              ],
+            },
+            {
+              $and: [
+                {
+                  'fullDocument.MAP.bapID': targetBapId,
+                  ...blockHeightCondition,
+                },
+                { 'fullDocument.AIP.address': bapAddress },
+              ],
+            },
+          ],
+        },
       },
-    },
-  ]);
+      {
+        $project: {
+          'fullDocument.tx': 1,
+          'fullDocument.MAP': 1,
+          'fullDocument.AIP': 1,
+          operationType: 1,
+          ns: 1,
+        },
+      },
+    ],
+    { batchSize: 1, maxAwaitTimeMS: 1000, timeoutMS: 0 }
+  );
 }
 
 /**
@@ -234,17 +246,29 @@ export async function watchAllMessages({
     $or: [{ 'fullDocument.blk.i': 0 }, { 'fullDocument.blk.i': { $gt: PROTOCOL_START_BLOCK } }],
   };
 
-  return dbo.collection('message').watch([
-    {
-      $match: {
-        $and: [
-          {
-            'fullDocument.MAP.bapID': bapId,
-            ...blockHeightCondition,
-          },
-          { 'fullDocument.AIP.address': bapAddress },
-        ],
+  return dbo.collection('message').watch(
+    [
+      {
+        $match: {
+          $and: [
+            {
+              'fullDocument.MAP.bapID': bapId,
+              ...blockHeightCondition,
+            },
+            { 'fullDocument.AIP.address': bapAddress },
+          ],
+        },
       },
-    },
-  ]);
+      {
+        $project: {
+          'fullDocument.tx': 1,
+          'fullDocument.MAP': 1,
+          'fullDocument.AIP': 1,
+          operationType: 1,
+          ns: 1,
+        },
+      },
+    ],
+    { batchSize: 1, maxAwaitTimeMS: 1000, timeoutMS: 0 }
+  );
 }
