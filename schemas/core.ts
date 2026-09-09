@@ -5,25 +5,35 @@ import { t } from 'elysia';
 // ============================================
 
 // Basic transaction structure (used everywhere)
-export const TxSchema = t.Object({
-  h: t.String({ description: 'Transaction hash' }),
-});
+export const TxSchema = t.Object(
+  {
+    h: t.String({ description: 'Transaction hash' }),
+  },
+  { additionalProperties: true }
+);
 
-export const BlockSchema = t.Object({
-  i: t.Number({ description: 'Block height' }),
-  t: t.Number({ description: 'Block timestamp' }),
-});
+export const BlockSchema = t.Object(
+  {
+    i: t.Number({ description: 'Block height' }),
+    t: t.Number({ description: 'Block timestamp' }),
+  },
+  { additionalProperties: true }
+);
 
 // Universal pagination (standardized on strings for query params)
 export const PaginationQuery = t.Object({
-  page: t.Optional(t.String({ description: 'Page number' })),
-  limit: t.Optional(t.String({ description: 'Items per page' })),
+  page: t.Optional(t.String({ description: 'Page number', pattern: '^[1-9][0-9]{0,3}$' })),
+  limit: t.Optional(
+    t.String({ description: 'Items per page (1–100)', pattern: '^(?:[1-9][0-9]?|100)$' })
+  ),
 });
 
 // Universal search
 export const SearchQuery = t.Object({
   q: t.String({ description: 'Search query' }),
-  limit: t.Optional(t.String({ description: 'Number of results' })),
+  limit: t.Optional(
+    t.String({ description: 'Number of results (1–100)', pattern: '^(?:[1-9][0-9]?|100)$' })
+  ),
   offset: t.Optional(t.String({ description: 'Offset for pagination' })),
 });
 
@@ -34,8 +44,9 @@ export const SearchQuery = t.Object({
 export const BapIdParams = t.Object({
   bapId: t.String({
     description: 'BAP identity key',
-    minLength: 20,
-    maxLength: 30,
+    minLength: 1,
+    maxLength: 128,
+    pattern: '^[a-zA-Z0-9]+$',
   }),
 });
 
@@ -70,31 +81,40 @@ export const TargetBapIdParams = t.Object({
 // ============================================
 
 // MAP Protocol
-export const MAPSchema = t.Object({
-  app: t.Optional(t.String()),
-  type: t.Optional(t.String()),
-  paymail: t.Optional(t.String()),
-  context: t.Optional(t.String()),
-  channel: t.Optional(t.String()),
-  bapID: t.Optional(t.String()),
-  encrypted: t.Optional(t.String()),
-  messageID: t.Optional(t.String()),
-});
+export const MAPSchema = t.Object(
+  {
+    app: t.Optional(t.String()),
+    type: t.Optional(t.String()),
+    paymail: t.Optional(t.String()),
+    context: t.Optional(t.String()),
+    channel: t.Optional(t.String()),
+    bapID: t.Optional(t.String()),
+    encrypted: t.Optional(t.String()),
+    messageID: t.Optional(t.String()),
+  },
+  { additionalProperties: true }
+);
 
 // AIP Protocol
-export const AIPSchema = t.Object({
-  algorithm: t.Optional(t.String()),
-  address: t.Optional(t.String()),
-  signature: t.Optional(t.String()),
-});
+export const AIPSchema = t.Object(
+  {
+    algorithm: t.Optional(t.String()),
+    address: t.Optional(t.String()),
+    signature: t.Optional(t.String()),
+  },
+  { additionalProperties: true }
+);
 
 // B Protocol (content)
-export const BSchema = t.Object({
-  encoding: t.Optional(t.String()),
-  content: t.Optional(t.String()),
-  'content-type': t.Optional(t.String()),
-  filename: t.Optional(t.String()),
-});
+export const BSchema = t.Object(
+  {
+    encoding: t.Optional(t.String()),
+    content: t.Optional(t.String()),
+    'content-type': t.Optional(t.String()),
+    filename: t.Optional(t.String()),
+  },
+  { additionalProperties: true }
+);
 
 // ============================================
 // TRANSACTION SCHEMAS (COMPOSABLE)
@@ -108,69 +128,52 @@ export const BaseTxSchema = t.Object({
 });
 
 // Full BMAP transaction
-export const BmapTxSchema = t.Object({
-  tx: TxSchema,
-  blk: t.Optional(BlockSchema),
-  timestamp: t.Optional(t.Number()),
-  MAP: t.Optional(t.Array(MAPSchema)),
-  AIP: t.Optional(t.Array(AIPSchema)),
-  B: t.Optional(t.Array(BSchema)),
-  in: t.Optional(t.Array(t.Unknown())),
-  out: t.Optional(t.Array(t.Unknown())),
-  lock: t.Optional(t.Number()),
-  _id: t.Optional(t.String()),
-});
+export const BmapTxSchema = t.Object(
+  {
+    tx: TxSchema,
+    blk: t.Optional(BlockSchema),
+    timestamp: t.Optional(t.Number()),
+    MAP: t.Optional(t.Array(MAPSchema)),
+    AIP: t.Optional(t.Array(AIPSchema)),
+    B: t.Optional(t.Array(BSchema)),
+    in: t.Optional(t.Array(t.Unknown())),
+    out: t.Optional(t.Array(t.Unknown())),
+    lock: t.Optional(t.Number()),
+    _id: t.Optional(t.String()),
+  },
+  { additionalProperties: true }
+);
 
 // ============================================
 // IDENTITY SCHEMAS (BAP)
 // ============================================
 
-export const AddressEntrySchema = t.Object({
-  address: t.String(),
-  txId: t.Optional(t.String()),
-  block: t.Optional(t.Number()),
-});
+export const AddressEntrySchema = t.Object(
+  {
+    address: t.String(),
+    txId: t.Optional(t.String()),
+    block: t.Optional(t.Number()),
+  },
+  { additionalProperties: true }
+);
 
-export const BapIdentitySchema = t.Object({
-  idKey: t.String(),
-  rootAddress: t.String(),
-  currentAddress: t.String(),
-  addresses: t.Array(AddressEntrySchema),
-  identity: t.Union([
-    t.String(), // JSON string
-    t.Object({
-      '@context': t.Optional(t.String()),
-      '@type': t.Optional(t.String()),
-      alternateName: t.Optional(t.String()),
-      description: t.Optional(t.String()),
-      image: t.Optional(t.String()),
-      url: t.Optional(t.String()),
-      email: t.Optional(t.String()),
-      paymail: t.Optional(t.String()),
-      banner: t.Optional(t.String()),
-      logo: t.Optional(t.String()),
-      bitcoinAddress: t.Optional(t.String()),
-      familyName: t.Optional(t.String()),
-      givenName: t.Optional(t.String()),
-      homeLocation: t.Optional(
-        t.Object({
-          '@type': t.Optional(t.String()),
-          name: t.Optional(t.String()),
-          latitude: t.Optional(t.String()),
-          longitude: t.Optional(t.String()),
-        })
-      ),
-    }),
-    t.Unknown(), // Fallback for complex structures
-  ]),
-  identityTxId: t.String(),
-  block: t.Number(),
-  timestamp: t.Number(),
-  valid: t.Boolean(),
-  paymail: t.Optional(t.String()),
-  displayName: t.Optional(t.String()),
-  icon: t.Optional(t.String()),
-});
+export const BapIdentitySchema = t.Object(
+  {
+    idKey: t.String(),
+    rootAddress: t.String(),
+    currentAddress: t.String(),
+    addresses: t.Array(AddressEntrySchema),
+    identity: t.Unknown(), // Profiles may contain arbitrary schema.org extensions.
+    identityTxId: t.String(),
+    block: t.Number(),
+    timestamp: t.Number(),
+    valid: t.Boolean(),
+    paymail: t.Optional(t.String()),
+    displayName: t.Optional(t.String()),
+    icon: t.Optional(t.String()),
+  },
+  { additionalProperties: true }
+);
 
 // ============================================
 // MESSAGE SCHEMAS (CONSOLIDATED)
@@ -270,6 +273,7 @@ export const FriendResponseSchema = t.Object({
 
 // Channel information
 export const ChannelInfoSchema = t.Object({
+  _id: t.Optional(t.String()),
   channel: t.String(),
   creator: t.Optional(t.Union([t.String(), t.Null()])),
   last_message: t.Optional(t.Union([t.String(), t.Null()])),
@@ -302,8 +306,8 @@ export const LikeRequestSchema = t.Object({
 });
 
 export const LikesQueryRequestSchema = t.Object({
-  txids: t.Optional(t.Array(t.String())),
-  messageIds: t.Optional(t.Array(t.String())),
+  txids: t.Optional(t.Array(t.String(), { maxItems: 20 })),
+  messageIds: t.Optional(t.Array(t.String(), { maxItems: 20 })),
 });
 
 export const LikeInfoSchema = t.Object({
@@ -318,8 +322,8 @@ export const LikeResponseSchema = t.Array(LikeInfoSchema);
 // ============================================
 
 export const PostQuery = t.Object({
-  page: t.Optional(t.String()),
-  limit: t.Optional(t.String()),
+  page: t.Optional(t.String({ pattern: '^[1-9][0-9]{0,3}$' })),
+  limit: t.Optional(t.String({ pattern: '^(?:[1-9][0-9]?|100)$' })),
   mimetype: t.Optional(t.String()),
   channel: t.Optional(t.String()),
 });
@@ -373,7 +377,7 @@ export const ActivityResponseSchema = t.Object({
 
 // Activity query params
 export const ActivityQuery = t.Object({
-  limit: t.Optional(t.String()),
+  limit: t.Optional(t.String({ pattern: '^(?:[1-9][0-9]?|100)$' })),
   blocks: t.Optional(t.String()),
   types: t.Optional(t.String()), // comma-separated: friend,message,like,pin_channel
 });
@@ -468,3 +472,20 @@ export const FeedParams = t.Object({
 
 // Re-export commonly used schemas with clear names
 export { BapIdentitySchema as IdentityResponseSchema, BapIdentitySchema as SignerSchema };
+
+export const PaginatedLikesSchema = t.Object({
+  bapID: t.Optional(t.String()),
+  page: t.Number(),
+  limit: t.Number(),
+  count: t.Number(),
+  results: t.Array(BmapTxSchema),
+  signers: t.Array(BapIdentitySchema),
+});
+export const BatchLikesSchema = t.Array(
+  t.Object({
+    txid: t.String(),
+    likes: t.Array(t.Unknown()),
+    total: t.Number(),
+    signers: t.Array(BapIdentitySchema),
+  })
+);

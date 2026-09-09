@@ -4,20 +4,19 @@ import type { BmapTx } from 'bmapjs';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
 import { Elysia, NotFoundError } from 'elysia';
-import type { ChangeStreamDocument } from 'mongodb';
-
-import './logger.js'; // Initialize logger first
-import './p2p.js';
-
-import type { ChangeStream } from 'mongodb';
+import type { ChangeStream, ChangeStreamDocument } from 'mongodb';
 import { analyticsRoutes, healthRoutes } from './analytics/routes.js';
 import { resolveSigners } from './bap.js';
 import { client, getBlockHeightFromCache } from './cache.js';
 import { getBlocksRange, getTimeSeriesData } from './chart.js';
 import { API_HOST, API_PORT } from './config/constants.js';
-import { getDbo } from './db.js';
+import { closeDb, getDbo } from './db.js';
 import { handleTxRequest } from './handlers/transaction.js';
-import { createErrorHandler, errorHandlerPlugin } from './middleware/errorHandler.js';
+import {
+  createErrorHandler,
+  errorHandlerPlugin,
+  ValidationError as QueryValidationError,
+} from './middleware/errorHandler.js';
 import { processTransaction } from './process.js';
 import { chartRoutes } from './routes/chart.js';
 import { queryRoutes } from './routes/query.js';
@@ -28,7 +27,8 @@ import { Timeframe } from './types.js';
 dotenv.config();
 
 // Create and configure the Elysia app using method chaining
-const app = new Elysia()
+// Validate responses without silently deleting protocol extension fields.
+const app = new Elysia({ normalize: false })
   // Error handling
   .use(errorHandlerPlugin())
   // Plugins
@@ -104,18 +104,19 @@ const app = new Elysia()
       path: '/docs',
     })
   )
+  .get('/healthz', () => ({ status: 'ok' }))
   // Derived context, e.g. SSE request timeout
   .derive(() => ({
     requestTimeout: 0,
   }))
 
   // Lifecycle hooks
-  .onRequest(({ request }) => {
-    // Only log 404s and errors, but we can log all requests if you prefer
-    console.log(chalk.gray(`${request.method} ${request.url}`));
-  })
   .onError(({ code, error, request, set }) => {
-    console.log(chalk.red(`Error [${code}]:`), error);
+    console.error(`Request failed: ${request.method} ${new URL(request.url).pathname} [${code}]`);
+    if (error instanceof QueryValidationError) {
+      set.status = 400;
+      return { error: error.message };
+    }
     const accept = request.headers.get('accept') || '';
     const wantsJSON = accept.includes('application/json');
 
@@ -203,7 +204,7 @@ const app = new Elysia()
       });
     }
 
-    console.error(chalk.red(`Error: ${request.method} ${request.url}`), error);
+    console.error(`Request failed: ${request.method} ${new URL(request.url).pathname} (${code})`);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     const debug = process.env.DEBUG === 'true';
     const responsePayload = debug
@@ -236,4 +237,15 @@ async function start() {
   });
 }
 
-start();
+async function shutdown() {
+  await app.stop();
+  await Promise.allSettled([closeDb(), client.isOpen ? client.quit() : Promise.resolve()]);
+  process.exit(0);
+}
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
+
+start().catch((error) => {
+  console.error('Startup failed:', error.name);
+  process.exit(1);
+});

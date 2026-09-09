@@ -4,10 +4,11 @@ import { ObjectId } from 'mongodb';
 import { type CacheValue, readFromRedis, saveToRedis } from './cache.js';
 import { EXTERNAL_APIS } from './config/constants.js';
 import { getBAPDbo } from './db.js';
+import { sigmaIdentityToBapIdentity } from './social/queries/identity.js';
 import type { SearchParams } from './social/queries/types.js';
 import type { BapAddress, BapIdentity } from './types.js';
 
-const { uniq, uniqBy } = _;
+const { uniqBy } = _;
 
 export interface BapIdentityObject {
   alternateName?: string;
@@ -54,12 +55,19 @@ export const getBAPIdByAddress = async (
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10_000),
   });
+  if (result.status === 404) return undefined;
+  if (!result.ok) throw new Error(`Identity API returned HTTP ${result.status}`);
   const data = await result.json();
-  if (data && data.status === 'OK' && data.result) {
-    return data.result.identity;
-  }
-  return undefined;
+  const record = data.status === 'OK' ? data.result : data;
+  if (!record?.identity?.idKey || !Array.isArray(record.identity.addresses))
+    throw new Error('Identity API returned an invalid address lookup');
+  return sigmaIdentityToBapIdentity({
+    ...record.identity,
+    valid: record.validityRecord?.valid === true,
+    profile: record.profile ?? record.identity.profile,
+  });
 };
 
 export const getSigners = async (addresses: string[]) => {
@@ -193,26 +201,19 @@ export const resolveSigners = async (txs: BmapTx[]) => {
     return cacheValue ? (cacheValue.value as BapIdentity | undefined) : null;
   };
 
-  // Function to process signers for a single transaction
-  const processSigners = async (tx: BmapTx) => {
-    const signerAddresses = [...(tx.AIP || []), ...(tx.SIGMA || [])].map(
-      (signer) => signer.address
-    );
-    const uniqueAddresses = uniq(signerAddresses.filter((a) => !!a));
-    const signerPromises = uniqueAddresses.map((address) => resolveSigner(address));
-    const resolvedSigners = await Promise.all(signerPromises);
-    return resolvedSigners.filter((signer) => signer !== null);
-  };
-
-  // Process all transactions and flatten the list of signers
-
-  const signerLists = await Promise.all(
-    txs
-      .filter((t) => !!t.AIP || !!t.SIGMA)
-      .sort((a, b) => (a.blk?.t > b.blk?.t ? -1 : 1))
-      .map((tx) => processSigners(tx))
-  );
-  return uniqBy(signerLists.flat(), (b) => b.idKey);
+  const addresses = [
+    ...new Set(
+      txs
+        .flatMap((tx) => [...(tx.AIP ?? []), ...(tx.SIGMA ?? [])].map((signer) => signer.address))
+        .filter(Boolean)
+    ),
+  ];
+  const identities: BapIdentity[] = [];
+  for (let offset = 0; offset < addresses.length; offset += 8) {
+    const batch = await Promise.all(addresses.slice(offset, offset + 8).map(resolveSigner));
+    identities.push(...batch.filter((identity): identity is BapIdentity => !!identity?.idKey));
+  }
+  return uniqBy(identities, (identity) => identity.idKey);
 };
 
 export async function searchIdentities({

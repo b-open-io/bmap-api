@@ -9,23 +9,24 @@ const ExternalIngestResponse = t.Object({
   status: t.String(),
   message: t.Optional(t.String()),
   data: t.Optional(t.Any()),
+  result: t.Optional(t.Unknown()),
 });
 
 export const transactionRoutes = new Elysia()
   .post(
     '/ingest',
-    async ({ body, set }: { body: IngestRequest; set: { status: number } }) => {
-      const { rawTx } = body;
-      console.log('Received ingest request, forwarding to bsocial overlay API...');
+    async ({ body, set }) => {
+      const { rawTx } = body as IngestRequest;
 
       try {
         // Forward to external bsocial overlay API
-        const response = await fetch(`${EXTERNAL_APIS.BAP}ingest`, {
+        const response = await fetch(`${EXTERNAL_APIS.BSOCIAL}ingest`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/octet-stream',
           },
-          body: JSON.stringify({ rawTx }),
+          body: Buffer.from(rawTx, 'hex'),
+          signal: AbortSignal.timeout(15_000),
         });
 
         const result = await response.json();
@@ -36,7 +37,6 @@ export const transactionRoutes = new Elysia()
           return result;
         }
 
-        console.log('Transaction successfully processed by bsocial overlay:', result);
         return result;
       } catch (error) {
         console.error('Error forwarding to bsocial overlay API:', error);
@@ -52,6 +52,7 @@ export const transactionRoutes = new Elysia()
       response: {
         200: ExternalIngestResponse,
         400: ExternalIngestResponse,
+        404: ExternalIngestResponse,
         422: ExternalIngestResponse,
         500: ExternalIngestResponse,
       },
